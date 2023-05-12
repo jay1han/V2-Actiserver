@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalSerializationApi::class, ExperimentalUnsignedTypes::class)
+@file:OptIn(ExperimentalSerializationApi::class)
 
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.MissingFieldException
@@ -49,23 +49,19 @@ class Options(configFileName: String = "") {
                     "max_repo_size" -> MAX_REPO_SIZE = value.toInt()
                     "upload_time" -> UPLOAD_TIME = Duration.ofHours(value.toLong())
                     "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
-                    "options" -> parseOptions(value)
+                    "options" -> for (c in value.toCharArray()) {
+                        when (c) {
+                            'l' -> logging = true
+                            'k' -> kill = true
+                            't' -> test = true
+                            'd' -> daemon = true
+                            'e' -> echo = true
+                            else -> {}
+                        }
+                    }
                 }
             }
         } catch (e: FileNotFoundException) {}
-    }
-
-    fun parseOptions(options: String) {
-        for (c in options.toCharArray()) {
-            when (c) {
-                'l' -> logging = true
-                'k' -> kill = true
-                't' -> test = true
-                'd' -> daemon = true
-                'e' -> echo = true
-                else -> {}
-            }
-        }
     }
 }
 
@@ -109,6 +105,7 @@ val mySsid = BufferedReader(FileReader("/etc/hostapd/hostapd.conf"))
     .find {it != ""}
 
 val serverId: Int = mySsid?.substring(5, 8)?.toInt() ?: 0
+val serverName = "Actis%03d".format(serverId)
 
 var Self = Actiserver()
 
@@ -137,7 +134,7 @@ fun dumpSelf() {
 fun printLog(message: String) {
     if (options.echo) println(message)
     with (PrintWriter(FileWriter(LOG_FILE, true))) {
-        println(message)
+        println("[$serverName] $message")
         close()
     }
 }

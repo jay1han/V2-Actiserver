@@ -1,16 +1,29 @@
 plugins {
     kotlin("jvm") version "1.8.20"
+    kotlin("plugin.serialization") version "1.8.20"
+    application
 }
 
 group = "name.jayhan"
-version = "1.0-SNAPSHOT"
+version = "2.0"
 
 repositories {
     mavenCentral()
+    maven("https://jitpack.io")
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0")
+    implementation("com.github.davidepianca98.KMQTT:kmqtt-common-jvm:0.4.1")
+    implementation("com.github.davidepianca98.KMQTT:kmqtt-client-jvm:0.4.1")
     testImplementation(kotlin("test"))
+}
+
+tasks {
+    jar {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
 }
 
 tasks.test {
@@ -19,4 +32,8 @@ tasks.test {
 
 kotlin {
     jvmToolchain(11)
+}
+
+application {
+    mainClass.set("ActiserverKt")
 }

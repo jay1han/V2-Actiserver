@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalUnsignedTypes::class, ExperimentalUnsignedTypes::class, ExperimentalUnsignedTypes::class)
+@file:OptIn(ExperimentalUnsignedTypes::class)
 
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -34,27 +34,24 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
 
 fun selfToCentral() {
     Self.lastReport = now()
+    mqttLog("Reporting to Central")
     val reqString = CENTRAL_BIN +
             "action=actiserver&serverId=${serverId}&ip=${myIp}&mac=${myMac}"
     val data = Json.encodeToString(Self)
-    printLog("selfToCentral: $reqString\n$data")
+    printLog("To Central: $reqString\ndata = $data")
     val registryText = sendHttpRequest(reqString, data)
     loadRegistry(registryText)
-    printLog("Loaded registry\n" + Registry.toString())
-    mqttLog("Reporting to Central")
+    printLog("Registry: " + Registry.toString())
 }
 
-@ExperimentalUnsignedTypes
 lateinit var mqttClient: MQTTClient
 
 fun mqttLog(text: String) {
-    if (options.echo) {
-        println(text)
-    }
+    printLog(text)
     if (options.logging) {
         try {
             mqttClient.publish(false, Qos.AT_MOST_ONCE, MQTT_LOG,
-                "Actis%03d: $text".format(serverId).toByteArray().toUByteArray())
+                "$serverName: $text".toByteArray().toUByteArray())
         } catch(e: IOException) {}
     }
 }

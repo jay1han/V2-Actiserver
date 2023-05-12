@@ -4,7 +4,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import java.nio.channels.SocketChannel
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.nio.ByteBuffer
+import java.nio.channels.ByteChannel
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.time.Duration
@@ -74,7 +77,7 @@ class SensorInfo(
             uploadFile(fileName)
             newDataFile(record.dateTime)
         }
-        printLog("Writing data to ${fileName.DATAname()}")
+        //printLog("Writing data to ${fileName.DATAname()}")
         val outfile = Files.newBufferedWriter(Path(fileName.DATAname()),
             StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.DSYNC)
         outfile.append(record.textStr + "\n")
@@ -87,8 +90,6 @@ class SensorInfo(
         return fileName.parseFileDate()
     }
 }
-
-enum class ActimState {NULL, Running, MustReport, Dead}
 
 @Serializable
 class Actimetre(
@@ -105,11 +106,37 @@ class Actimetre(
     @Serializable(with = DateTimeAsString::class)
     @Required var lastReport = TimeZero
     @Required var sensorList = mutableMapOf<String, SensorInfo>()
-    @Transient var channel: SocketChannel? = null
+    @Transient var channel: ByteChannel? = null
     // We're going to manage the channel from within the Actimetre class
 
+    suspend fun run(channel: ByteChannel) {
+        this.channel = channel
 
-    fun sensorStr(): String {
+        while (true) {
+            val sensorBuffer = ByteBuffer.allocate(18)
+            val inputLen = this.channel!!.read(sensorBuffer)
+            if (inputLen < 18) {
+                printLog("${actimName()} couldn't read channel, closing")
+                return
+            }
+
+            val record = Record(sensorBuffer.array())
+            printLog("${actimName()}: ${record.textStr}")
+            if (!sensorList.containsKey(record.sensorId))
+                sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
+            sensorList[record.sensorId]!!.writeData(record)
+            lastSeen = now()
+        }
+    }
+
+    suspend fun dies() {
+        mqttLog("${actimName()} dies")
+        val reqString = CENTRAL_BIN + "action=actimetre-off" +
+                "&serverId=${serverId}&actimId=${actimId}"
+        sendHttpRequest(reqString)
+    }
+
+    private fun sensorStr(): String {
         var result = ""
         for (port in IntRange(1, 2)) {
             var portStr = "$port"
@@ -123,28 +150,19 @@ class Actimetre(
         return result
     }
 
-    fun addRecord(record: Record) {
-        printLog("Add to Actim${actimId}: " + record.textStr)
-        if (!sensorList.containsKey(record.sensorId))
-            sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
-        sensorList[record.sensorId]!!.writeData(record)
-        seen()
-    }
-
-    fun loopOk(now: ZonedDateTime): ActimState {
+    suspend fun loop(now: ZonedDateTime) {
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
-            printLog("${actimName()} detected dead")
+            mqttLog("${actimName()} detected dead")
             isDead = true
             for (sensorInfo in sensorList.values) {
                 uploadFile(sensorInfo.fileName)
             }
-            return ActimState.Dead
-        } else {
-            if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
-                lastReport = now
-                return ActimState.MustReport
-            }
-            return ActimState.Running
+        } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
+            val reqString = CENTRAL_BIN + "action=actimetre" +
+                    "&serverId=${serverId}&actimId=${actimId}&sensorStr=${sensorStr()}"
+            sendHttpRequest(reqString, Json.encodeToString(value = this))
+            mqttLog("${actimName()} reported")
+            lastReport = now
         }
     }
 
@@ -152,10 +170,6 @@ class Actimetre(
         this.mac = mac
         this.boardType = boardType
         this.bootTime = bootTime
-    }
-
-    fun seen(now: ZonedDateTime = now()) {
-        lastSeen = now
     }
 
     fun actimName(): String {
@@ -176,13 +190,17 @@ class Actiserver(
     @Required var actimetreList = mutableMapOf<Int, Actimetre>()
     @Transient var mutex: Mutex = Mutex()
 
-    fun updateActimetre(actimId: Int, mac: String, boardType: String, bootTime: ZonedDateTime) {
+    fun updateActimetre(actimId: Int, mac: String, boardType: String, bootTime: ZonedDateTime): Actimetre {
         var a = actimetreList[actimId]
         if (a == null) {
             a = Actimetre(actimId, serverId = serverId)
             actimetreList[actimId] = a
         }
         a.setInfo(mac, boardType, bootTime)
-        a.seen()
+        return a
+    }
+
+    fun removeActim(actimId: Int) {
+        actimetreList.remove(actimId)
     }
 }
