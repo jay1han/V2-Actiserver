@@ -1,20 +1,14 @@
 @file:OptIn(ExperimentalUnsignedTypes::class)
 
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.ByteChannel
 import java.nio.channels.ClosedChannelException
 import java.nio.channels.ServerSocketChannel
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZonedDateTime
 import kotlin.system.exitProcess
 
-@OptIn(ExperimentalUnsignedTypes::class)
+@OptIn(ExperimentalUnsignedTypes::class, DelicateCoroutinesApi::class)
 fun main(args: Array<String>) {
     if (args.count() > 1) options = Options(args[1])
 
@@ -25,9 +19,8 @@ fun main(args: Array<String>) {
     }
 
     println("Welcome to Actiserver")
-    println("mySsid is ${mySsid}, hence my serverId is $serverId")
-    println("myIp is $myIp")
-    println("myMac is $myMac")
+    println("mySsid=${mySsid}, serverId=$serverId, serverAddress=$serverAddress")
+    println("myIp=$myIp, myMac=$myMac")
 
     if (serverId > 0) {
         mqttClient = MQTTClient(4, CENTRAL_HOST, 1883, null, keepAlive = 0) {}
@@ -54,27 +47,29 @@ fun main(args: Array<String>) {
     }
 
     runBlocking {
-        launch {reportingLoop()}
-        launch {mainLoop()}
+        launch(newSingleThreadContext("Reporting")) {reportingLoop()}
+        launch(newSingleThreadContext("Main")) {mainLoop()}
 
+        var clientCount = 0
         while (true) {
-            println("Listening...")
-            withContext(Dispatchers.IO) {
-                val channel = actiServer.accept()
-                launch {newClient(channel as ByteChannel)}
+            println("Listening... $clientCount")
+            val channel = actiServer.accept()
+            clientCount += 1
+            launch(newSingleThreadContext("Client$clientCount")) {
+                newClient(channel as ByteChannel)
             }
         }
     }
 }
 
 suspend fun newClient (channel: ByteChannel) {
-    val messageBuffer = ByteBuffer.allocate(14)
+    val messageBuffer = ByteBuffer.allocate(9)
     val inputLen: Int
     println("New client")
 
     try {
         inputLen = channel.read(messageBuffer)
-        printLog("Header: read $inputLen header: ${messageBuffer[0].toUInt()}")
+        printLog("Init: read $inputLen")
     } catch (e: java.io.IOException) {
         printLog("IOException")
         channel.close()
@@ -83,7 +78,7 @@ suspend fun newClient (channel: ByteChannel) {
         printLog("ClosedChannelException")
         return
     }
-    if (inputLen != 15) {
+    if (inputLen != messageBuffer.capacity()) {
         printLog("Malformed first message, only $inputLen bytes")
         return
     }
@@ -91,8 +86,7 @@ suspend fun newClient (channel: ByteChannel) {
     val message = messageBuffer.array()
     val boardType = (message.slice(0..2).map {it.toUByte().toInt().toChar()}).joinToString(separator="")
     val mac = (message.slice(3..8).map {"%02X".format(it.toUByte().toInt())}).joinToString(separator="")
-    val bootTimeInt = message.getIntAt(9).toLong()
-    val bootTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(bootTimeInt), ZoneId.of("Z"))
+    val bootTime = now()
     printLog("Actimetre MAC=$mac type $boardType booted at ${bootTime.prettyFormat()}")
 
     val actimId = Registry[mac] ?: 0
@@ -108,18 +102,25 @@ suspend fun newClient (channel: ByteChannel) {
     } else {
         printLog("Known Actim%04d".format(actimId))
     }
+
     val a = Self.updateActimetre(newActimId, mac, boardType, bootTime)
     dumpSelf()
-    mqttLog("${a.actimName()} MAC=$mac type $boardType booted at ${bootTime.prettyFormat()}")
 
-    val outputBuffer = ByteBuffer.allocate(2)
+    val epochTime = bootTime.toEpochSecond()
+    mqttLog("${a.actimName()} MAC=$mac type $boardType booted at $epochTime (${bootTime.prettyFormat()})")
+
+    val outputBuffer = ByteBuffer.allocate(6)
     outputBuffer.put(0, (newActimId shr 8).toByte())
     outputBuffer.put(1, (newActimId % 256).toByte())
+    outputBuffer.put(2, (epochTime shr 24).toByte())
+    outputBuffer.put(3, ((epochTime shr 16) and 0xFF).toByte())
+    outputBuffer.put(4, ((epochTime shr 8) and 0xFF).toByte())
+    outputBuffer.put(5, (epochTime and 0xFF).toByte())
+
     channel.write(outputBuffer)
 
     a.run(channel)
     a.dies()
-    Self.removeActim(newActimId)
     dumpSelf()
 }
 

@@ -11,6 +11,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 fun sendHttpRequest(reqString: String, data: String = ""): String {
+    printLog(reqString + if (data != "") ", data=$data" else "")
     val centralURL = URL("HTTP", CENTRAL_HOST, reqString)
     val connection = centralURL.openConnection() as HttpURLConnection
     connection.doInput = true
@@ -23,13 +24,15 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
         connection.requestMethod = "GET"
     }
     val responseCode = connection.responseCode
-    return if (responseCode == 200) {
+    val response = if (responseCode == 200) {
         val input = connection.inputStream
         val reader = BufferedReader(InputStreamReader(input))
         val responseText = reader.readText()
         input.close()
         return responseText
     } else "Error $responseCode from Acticentral"
+    printLog("Response=$response")
+    return response
 }
 
 fun selfToCentral() {
@@ -38,7 +41,6 @@ fun selfToCentral() {
     val reqString = CENTRAL_BIN +
             "action=actiserver&serverId=${serverId}&ip=${myIp}&mac=${myMac}"
     val data = Json.encodeToString(Self)
-    printLog("To Central: $reqString\ndata = $data")
     val registryText = sendHttpRequest(reqString, data)
     loadRegistry(registryText)
     printLog("Registry: " + Registry.toString())
