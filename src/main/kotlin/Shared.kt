@@ -23,7 +23,7 @@ fun uploadOrphans() {
 }
 
 fun uploadFile(fileName: String) {
-    printLog("Uploading $fileName")
+    println("Uploading $fileName")
 
     val sensorName = fileName.substring(0, 12)
     var lastRepoFile = ""
@@ -47,8 +47,10 @@ fun uploadFile(fileName: String) {
         (Duration.between(lastRepoDate, fileName.parseFileDate()) > MAX_REPO_TIME) ||
         (lastRepoSize > MAX_REPO_SIZE)) {
         Path(fileName.DATAname()).moveTo(Path(fileName.REPOname()), overwrite = true)
+        mqttLog("Moved ${fileName.DATAname()} to ${fileName.REPOname()}")
     } else {
         appendFile(fileName.DATAname(), lastRepoFile.REPOname())
+        mqttLog("Appended ${fileName.DATAname()} to ${lastRepoFile.REPOname()}")
     }
 }
 

@@ -185,6 +185,11 @@ class Actimetre(
         this.lastSeen = lastSeen
     }
 
+    fun seen(now: ZonedDateTime) {
+        lastSeen = now
+        isDead = false
+    }
+
     fun actimName(): String {
         return "Actim%04d".format(actimId)
     }
@@ -218,6 +223,12 @@ class Actiserver(
     suspend fun removeActim(actimId: Int) {
         withContext(context) {
             actimetreList.remove(actimId)
+        }
+    }
+
+    fun clean() {
+        for (a in actimetreList.values) {
+            a.seen(now())
         }
     }
 }

@@ -1,10 +1,6 @@
 @file:OptIn(ExperimentalSerializationApi::class)
 
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.MissingFieldException
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.*
 import java.time.Duration
 import java.util.concurrent.TimeUnit
@@ -18,12 +14,11 @@ var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 const val MQTT_LOG = "Acti/Log"
 const val DATA_ROOT = "/media/actimetre/Data"
 const val REPO_ROOT = "/media/actimetre/Repo"
-const val CONFIG_SELF = "/etc/actimetre/self.data"
 const val LOG_FILE = "/etc/actimetre/server.log"
 const val CENTRAL_BIN = "/bin/acticentral?"
-val ACTIM_REPORT_TIME: Duration = Duration.ofSeconds(15)
+val ACTIM_REPORT_TIME: Duration = Duration.ofSeconds(5)
 val ACTIM_DEAD_TIME: Duration = Duration.ofSeconds(3)
-const val ACTIS_CHECK_MILLIS = 15000L
+const val ACTIS_CHECK_MILLIS = 10000L
 
 var options = Options("")
 
@@ -107,29 +102,7 @@ val mySsid = BufferedReader(FileReader("/etc/hostapd/hostapd.conf"))
 val serverId: Int = mySsid?.substring(5, 8)?.toInt() ?: 0
 val serverName = "Actis%03d".format(serverId)
 
-var Self = Actiserver()
-
-fun loadSelf() {
-    try {
-        val selfFile = BufferedReader(FileReader(CONFIG_SELF))
-        try {
-            Self = Json.decodeFromString<Actiserver>(selfFile.readText())
-        } catch (e: MissingFieldException) {
-            Self = Actiserver(serverId, myMac, myIp, now())
-            dumpSelf()
-        }
-        selfFile.close()
-    } catch(e: FileNotFoundException) {
-        Self = Actiserver(serverId, myMac, myIp, now())
-        dumpSelf()
-    }
-}
-fun dumpSelf() {
-    printLog("dumpSelf\n" + Json.encodeToString(Self))
-    val selfFile = BufferedWriter(FileWriter(CONFIG_SELF))
-    selfFile.write(Json.encodeToString(Self))
-    selfFile.close()
-}
+lateinit var Self: Actiserver
 
 fun printLog(message: String) {
     if (options.echo) println(message)

@@ -38,7 +38,7 @@ fun main(args: Array<String>) {
     }
 
     uploadOrphans()
-    loadSelf()
+    Self = Actiserver(serverId, myMac, myIp, now())
     selfToCentral()
 
     val actiServer = ServerSocketChannel.open().apply {
@@ -104,7 +104,6 @@ suspend fun newClient (channel: ByteChannel) {
     }
 
     val a = Self.updateActimetre(newActimId, mac, boardType, bootTime)
-    dumpSelf()
 
     val epochTime = bootTime.toEpochSecond()
     mqttLog("${a.actimName()} MAC=$mac type $boardType booted at $epochTime (${bootTime.prettyFormat()})")
@@ -121,7 +120,7 @@ suspend fun newClient (channel: ByteChannel) {
 
     a.run(channel)
     a.dies()
-    dumpSelf()
+    selfToCentral()
 }
 
 suspend fun mainLoop() {
