@@ -1,14 +1,13 @@
 @file:OptIn(ExperimentalUnsignedTypes::class)
 
-import kotlinx.coroutines.*
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.ByteChannel
 import java.nio.channels.ClosedChannelException
 import java.nio.channels.ServerSocketChannel
+import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
-@OptIn(ExperimentalUnsignedTypes::class, DelicateCoroutinesApi::class)
 fun main(args: Array<String>) {
     if (args.count() > 1) options = Options(args[1])
 
@@ -46,23 +45,23 @@ fun main(args: Array<String>) {
         bind(InetSocketAddress(serverAddress, 2883))
     }
 
-    runBlocking {
-        launch(newSingleThreadContext("Reporting")) {reportingLoop()}
-        launch(newSingleThreadContext("Main")) {mainLoop()}
+    thread(start=true, name="reporting") {reportingLoop()}
+    thread(start=true, name="loop") {mainLoop()}
 
-        var clientCount = 0
-        while (true) {
-            println("Listening... $clientCount")
-            val channel = actiServer.accept()
-            clientCount += 1
-            launch(newSingleThreadContext("Client$clientCount")) {
-                newClient(channel as ByteChannel)
-            }
+    var clientCount = 0
+    while (true) {
+        println("Listening... $clientCount")
+        val channel = actiServer.accept() as ByteChannel
+        clientCount += 1
+        thread(start=true, name="$clientCount") {
+            newClient(channel)
+            channel.close()
+            println("Closed channel")
         }
     }
 }
 
-suspend fun newClient (channel: ByteChannel) {
+fun newClient (channel: ByteChannel) {
     val messageBuffer = ByteBuffer.allocate(9)
     val inputLen: Int
     println("New client")
@@ -72,7 +71,6 @@ suspend fun newClient (channel: ByteChannel) {
         printLog("Init: read $inputLen")
     } catch (e: java.io.IOException) {
         printLog("IOException")
-        channel.close()
         return
     } catch (e: ClosedChannelException) {
         printLog("ClosedChannelException")
@@ -123,21 +121,22 @@ suspend fun newClient (channel: ByteChannel) {
     selfToCentral()
 }
 
-suspend fun mainLoop() {
+fun mainLoop() {
     printLog("Main Loop")
     while(true) {
         val now = now()
-        for (a in Self.actimetreList.values) {
+        val actimList = Self.actimetreList.values.toList()
+        for (a in actimList) {
             a.loop(now)
         }
-        delay(1000)
+        Thread.sleep(1000)
     }
 }
 
-suspend fun reportingLoop() {
+fun reportingLoop() {
     printLog("Reporting Loop")
     while(true) {
-        delay(ACTIS_CHECK_MILLIS)
+        Thread.sleep(ACTIS_CHECK_MILLIS)
         selfToCentral()
     }
 }
