@@ -21,7 +21,7 @@ import kotlin.io.path.Path
 class Record(buffer: ByteArray) {
     private val port: Int = (buffer[0].toInt() shr 4) and 0x03
     private val address: Int = (buffer[0].toInt() and 0x0F)
-    val sensorId = "${port + 1}${'A' + address}"
+    val sensorId = "%1d%1c".format(port + 1, 'A' + address)
     private val epochSeconds = buffer.getIntAt(1).toLong()
     private val microSeconds = buffer[5].toLong() * 65536 + buffer[6].toLong() * 256 + buffer[7].toLong()
     val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(
@@ -93,13 +93,42 @@ class SensorInfo(
 }
 
 @Serializable
-class Actimetre(
-    @Required val actimId   : Int = 9999,
+class ActimetreShort(
+    @Required var actimId           : Int = 9999,
     @Required private var mac       : String = "............",
     @Required private var boardType : String = "???",
-    @Required private val serverId  : Int = 0,
+    @Required private var serverId  : Int = 0,
+    @Required private var isDead    : Boolean = false,
+    @Serializable(with = DateTimeAsString::class)
+    @Required var bootTime          : ZonedDateTime = TimeZero,
+    @Serializable(with = DateTimeAsString::class)
+    @Required var lastSeen          : ZonedDateTime = TimeZero,
+    @Serializable(with = DateTimeAsString::class)
+    @Required var lastReport        : ZonedDateTime = TimeZero,
+    @Required var sensorStr         : String = ""
 ) {
-    @Required private var isDead   = false
+    fun init(a: Actimetre): ActimetreShort {
+        actimId = a.actimId
+        mac = a.mac
+        boardType = a.boardType
+        serverId = a.serverId
+        isDead = a.isDead
+        bootTime = a.bootTime
+        lastSeen = a.lastSeen
+        lastReport = a.lastReport
+        sensorStr = a.sensorStr()
+        return this
+    }
+}
+
+@Serializable
+class Actimetre(
+    @Required val actimId   : Int = 9999,
+    @Required var mac       : String = "............",
+    @Required var boardType : String = "???",
+    @Required val serverId  : Int = 0,
+) {
+    @Required var isDead = false
     @Serializable(with = DateTimeAsString::class)
     @Required var bootTime = TimeZero
     @Serializable(with = DateTimeAsString::class)
@@ -108,6 +137,10 @@ class Actimetre(
     @Required var lastReport = TimeZero
     @Required var sensorList = mutableMapOf<String, SensorInfo>()
     @Transient var channel: ByteChannel? = null
+
+    fun toCentral(): ActimetreShort {
+        return ActimetreShort().init(this)
+    }
 
     suspend fun run(channel: ByteChannel) {
         this.channel = channel
@@ -152,7 +185,7 @@ class Actimetre(
         }
     }
 
-    private fun sensorStr(): String {
+    fun sensorStr(): String {
         var result = ""
         for (port in IntRange(1, 2)) {
             var portStr = "$port"
@@ -171,8 +204,8 @@ class Actimetre(
             dies()
         } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
             val reqString = CENTRAL_BIN + "action=actimetre" +
-                    "&serverId=${serverId}&actimId=${actimId}&sensorStr=${sensorStr()}"
-            sendHttpRequest(reqString, Json.encodeToString(value = this))
+                    "&serverId=${serverId}&actimId=${actimId}"
+            sendHttpRequest(reqString, Json.encodeToString(toCentral()))
             mqttLog("${actimName()} reported")
             lastReport = now
         }
@@ -196,6 +229,28 @@ class Actimetre(
 }
 
 @Serializable
+class ActiserverShort(
+    @Required var serverId: Int = 0,
+    @Required var mac     : String = "............",
+    @Required var ip      : String = "0.0.0.0",
+    @Serializable(with = DateTimeAsString::class)
+    @Required var started : ZonedDateTime = TimeZero,
+    @Serializable(with = DateTimeAsString::class)
+    @Required var lastReport : ZonedDateTime = TimeZero,
+    @Required var actimetreList : Set<Int> = setOf(),
+) {
+    fun init(s: Actiserver) : ActiserverShort {
+        serverId = s.serverId
+        mac = s.mac
+        ip = s.ip
+        started = s.started
+        lastReport = s.lastReport
+        actimetreList = s.actimetreList.keys.toSet()
+        return this
+    }
+}
+
+@Serializable
 class Actiserver(
     @Required val serverId: Int = 0,
     @Required val mac     : String = "............",
@@ -207,6 +262,10 @@ class Actiserver(
     @Required var lastReport = TimeZero
     @Required var actimetreList = mutableMapOf<Int, Actimetre>()
     @Transient val context = newSingleThreadContext("Self")
+
+    fun toCentral(): ActiserverShort {
+        return ActiserverShort().init(this)
+    }
 
     suspend fun updateActimetre(actimId: Int, mac: String, boardType: String, bootTime: ZonedDateTime): Actimetre {
         var a = actimetreList[actimId]

@@ -40,7 +40,7 @@ fun selfToCentral() {
     mqttLog("Reporting to Central")
     val reqString = CENTRAL_BIN +
             "action=actiserver&serverId=${serverId}&ip=${myIp}&mac=${myMac}"
-    val data = Json.encodeToString(Self)
+    val data = Json.encodeToString(Self.toCentral())
     val registryText = sendHttpRequest(reqString, data)
     loadRegistry(registryText)
     printLog("Registry: " + Registry.toString())
@@ -52,8 +52,8 @@ fun mqttLog(text: String) {
     printLog(text)
     if (options.logging) {
         try {
-            mqttClient.publish(false, Qos.AT_MOST_ONCE, MQTT_LOG,
-                "$serverName: $text".toByteArray().toUByteArray())
+            mqttClient.publish(false, Qos.AT_MOST_ONCE, "$MQTT_LOG/$serverName",
+                "[$serverName] $text".toByteArray().toUByteArray())
         } catch(e: IOException) {}
     }
 }
