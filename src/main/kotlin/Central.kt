@@ -52,7 +52,7 @@ fun mqttLog(text: String) {
     printLog(text)
     if (options.logging) {
         try {
-            mqttClient.publish(false, Qos.AT_MOST_ONCE, "$MQTT_LOG/$serverName",
+            mqttClient.publish(false, Qos.AT_MOST_ONCE, "$MQTT_LOG/$serverId",
                 "[$serverName] $text".toByteArray().toUByteArray())
         } catch(e: IOException) {}
     }

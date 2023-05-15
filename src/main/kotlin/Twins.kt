@@ -13,22 +13,27 @@ import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import kotlin.io.path.Path
 
-class Record(buffer: ByteArray) {
+const val DATA_LENGTH = 16
+const val MSG_LENGTH = DATA_LENGTH * 4 + 1
+class Record(buffer: ByteArray, bootTime: ZonedDateTime) {
+    private val bootEpoch = bootTime.toEpochSecond()
     private val port: Int = (buffer[0].toInt() shr 4) and 0x03
     private val address: Int = (buffer[0].toInt() and 0x0F)
     val sensorId = "%1d%1c".format(port + 1, 'A' + address)
-    private val epochSeconds = buffer.getIntAt(1).toLong()
-    private val microSeconds = buffer[5].toLong() * 65536 + buffer[6].toLong() * 256 + buffer[7].toLong()
-    val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(
-        epochSeconds, microSeconds * 1000), ZoneOffset.UTC)
-    private val accelStr = makeAccelStr(buffer.sliceArray(8..13))
-    private val gyroStr = makeGyroStr(buffer.sliceArray(14..17))
+    private val epochSeconds = buffer.getInt3At(1).toLong()
+    private val milliSeconds = buffer[4].toLong() * 256 + buffer[5].toLong()
+    val dateTime = ZonedDateTime.ofInstant(
+        Instant.ofEpochSecond(epochSeconds + bootEpoch, milliSeconds * 1000000),
+        ZoneId.of("Z"))
+    private val accelStr = makeAccelStr(buffer.sliceArray(6..11))
+    private val gyroStr = makeGyroStr(buffer.sliceArray(12..15))
     val textStr: String = dateTime.prettyFormat() +
-            ".%03d,%03d ".format(dateTime.nano / 1000000L, (dateTime.nano / 1000) % 1000) +
+            ".%03d ".format(dateTime.nano / 1000000L) +
             accelStr + " " + gyroStr
 
     private fun makeInt(msb: Byte, lsb: Byte) : Int {
@@ -143,9 +148,8 @@ class Actimetre(
 
     fun run(channel: ByteChannel) {
         this.channel = channel
-
         while (true) {
-            val sensorBuffer = ByteBuffer.allocate(18)
+            val sensorBuffer = ByteBuffer.allocate(MSG_LENGTH)
             var inputLen = 0
             try {
                 inputLen = this.channel!!.read(sensorBuffer)
@@ -156,15 +160,21 @@ class Actimetre(
                 printLog("${actimName()} SocketException")
                 return
             }
-            if (inputLen < 18) {
+
+            val sensor = sensorBuffer.array()
+            val nSensors = sensor[0].toInt()
+            if (inputLen != nSensors * DATA_LENGTH + 1) {
                 printLog("${actimName()} can't read channel, exiting")
                 return
             }
 
-            val record = Record(sensorBuffer.array())
-            if (!sensorList.containsKey(record.sensorId))
-                sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
-            sensorList[record.sensorId]!!.writeData(record)
+            for (i in 0 until nSensors) {
+                val record = Record(sensor.sliceArray(1 + i * DATA_LENGTH..(i + 1) * DATA_LENGTH), bootTime)
+                if (!sensorList.containsKey(record.sensorId))
+                    sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
+                sensorList[record.sensorId]!!.writeData(record)
+            }
+
             lastSeen = now()
         }
     }

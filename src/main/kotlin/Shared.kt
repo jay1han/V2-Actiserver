@@ -107,7 +107,7 @@ fun String.parseFileDate(): ZonedDateTime {
     return this.substring(13,27).parseActiFormat()
 }
 
-fun ByteArray.getIntAt(index: Int): Int {
-    return this[index].toUByte().toInt() * (1 shl 24) + this[index + 1].toUByte().toInt() * (1 shl 16) +
-            this[index + 2].toUByte().toInt() * (1 shl 8) + this[index + 3].toUByte().toInt()
+fun ByteArray.getInt3At(index: Int): Int {
+    return this[index].toUByte().toInt() * (1 shl 16) + this[index + 1].toUByte().toInt() * (1 shl 8) +
+            this[index + 2].toUByte().toInt()
 }
