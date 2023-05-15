@@ -28,6 +28,7 @@ fun main(args: Array<String>) {
         if (options.echo) println("Echo on")
         if (options.logging) println("Logging on")
         if (options.test) println("Test mode")
+        if (options.fullText) println("Full text")
         println("CENTRAL_HOST = $CENTRAL_HOST")
         println("UPLOAD_SIZE = $UPLOAD_SIZE; UPLOAD_TIME = $UPLOAD_TIME")
         println("MAX_REPO_SIZE = $MAX_REPO_SIZE; MAX_REPO_TIME = $MAX_REPO_TIME")

@@ -5,6 +5,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import mqtt.packets.Qos
+import java.io.BufferedWriter
 import java.net.SocketException
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousCloseException
@@ -19,7 +21,7 @@ import java.time.ZonedDateTime
 import kotlin.io.path.Path
 
 const val DATA_LENGTH = 16
-const val MSG_LENGTH = DATA_LENGTH * 4 + 1
+const val MSG_LENGTH = DATA_LENGTH * 4
 class Record(buffer: ByteArray, bootTime: ZonedDateTime) {
     private val bootEpoch = bootTime.toEpochSecond()
     private val port: Int = (buffer[0].toInt() shr 4) and 0x03
@@ -69,30 +71,36 @@ class SensorInfo(
     @Required var fileName: String = "",
     @Required private var fileSize: Int = 0,
 ){
+    @Transient private lateinit var fileHandle: BufferedWriter
+    @Transient private lateinit var fileDate: ZonedDateTime
+
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId)}
+
+    private fun actimNum(): String {return "%04d".format(actimId)}
 
     private fun newDataFile(atDateTime: ZonedDateTime) {
         fileName = sensorName() + "_" + atDateTime.actiFormat() + ".txt"
         fileSize = 0
+        fileHandle = Files.newBufferedWriter(Path(fileName.DATAname()),
+            StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.DSYNC)
+        fileDate = atDateTime
     }
 
     fun writeData(record: Record) {
         if (fileName == "") newDataFile(record.dateTime)
         if (fileSize > UPLOAD_SIZE ||
-            Duration.between(this.getFileDate(), record.dateTime) > UPLOAD_TIME) {
+            Duration.between(fileDate, record.dateTime) > UPLOAD_TIME) {
+            fileHandle.close()
             uploadFile(fileName)
             newDataFile(record.dateTime)
         }
-        val outfile = Files.newBufferedWriter(Path(fileName.DATAname()),
-            StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.DSYNC)
-        outfile.append(record.textStr + "\n")
-        outfile.flush()
-        outfile.close()
+        if (options.fullText) {
+            mqttClient.publish(false, Qos.AT_MOST_ONCE, "$MQTT_TEXT/${actimNum()}/$sensorId",
+                record.textStr.toByteArray().toUByteArray())
+        }
+        fileHandle.append(record.textStr + "\n")
+        fileHandle.flush()
         fileSize += record.textStr.length + 1
-    }
-
-    private fun getFileDate(): ZonedDateTime {
-        return fileName.parseFileDate()
     }
 }
 
@@ -141,6 +149,7 @@ class Actimetre(
     @Required var lastReport = TimeZero
     @Required var sensorList = mutableMapOf<String, SensorInfo>()
     @Transient var channel: ByteChannel? = null
+    @Transient var errors: Int = 0
 
     private fun toCentral(): ActimetreShort {
         return ActimetreShort().init(this)
@@ -149,10 +158,11 @@ class Actimetre(
     fun run(channel: ByteChannel) {
         this.channel = channel
         while (true) {
-            val sensorBuffer = ByteBuffer.allocate(MSG_LENGTH)
+            val sensorBuffer = ByteBuffer.allocate(DATA_LENGTH)
             var inputLen = 0
             try {
-                inputLen = this.channel!!.read(sensorBuffer)
+                while (inputLen < DATA_LENGTH)
+                    inputLen += this.channel!!.read(sensorBuffer)
             } catch (e: AsynchronousCloseException) {
                 printLog("${actimName()} AsynchronousCloseException")
                 return
@@ -162,18 +172,21 @@ class Actimetre(
             }
 
             val sensor = sensorBuffer.array()
-            val nSensors = sensor[0].toInt()
-            if (inputLen != nSensors * DATA_LENGTH + 1) {
-                printLog("${actimName()} can't read channel, exiting")
-                return
+            if (inputLen < DATA_LENGTH) {
+                println("${actimName()} can't read channel")
+                synchronized(errors) {
+                    errors += 1
+                    if (errors > 100) {
+                        printLog("${actimName()} too many errors, exiting")
+                        return
+                    }
+                }
             }
 
-            for (i in 0 until nSensors) {
-                val record = Record(sensor.sliceArray(1 + i * DATA_LENGTH..(i + 1) * DATA_LENGTH), bootTime)
-                if (!sensorList.containsKey(record.sensorId))
-                    sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
-                sensorList[record.sensorId]!!.writeData(record)
-            }
+            val record = Record(sensor, bootTime)
+            if (!sensorList.containsKey(record.sensorId))
+                sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
+            sensorList[record.sensorId]!!.writeData(record)
 
             lastSeen = now()
         }
@@ -218,6 +231,9 @@ class Actimetre(
                 sendHttpRequest(reqString, Json.encodeToString(toCentral()))
                 mqttLog("${actimName()} reported")
                 lastReport = now
+                synchronized(errors) {
+                    errors = 0
+                }
             }
         }
     }

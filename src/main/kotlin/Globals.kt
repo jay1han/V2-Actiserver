@@ -12,6 +12,7 @@ var UPLOAD_TIME: Duration = Duration.ofHours(1)
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 
 const val MQTT_LOG = "Acti/Log"
+const val MQTT_TEXT = "Acti"
 const val DATA_ROOT = "/media/actimetre/Data"
 const val REPO_ROOT = "/media/actimetre/Repo"
 const val LOG_FILE = "/etc/actimetre/server.log"
@@ -28,6 +29,7 @@ class Options(configFileName: String = "") {
     var test: Boolean = false
     var daemon: Boolean = false
     var echo: Boolean = false
+    var fullText: Boolean = false
 
     init {
         println("Loading options from '$configFileName'")
@@ -51,6 +53,7 @@ class Options(configFileName: String = "") {
                             't' -> test = true
                             'd' -> daemon = true
                             'e' -> echo = true
+                            'f' -> fullText = true
                             else -> {}
                         }
                     }
