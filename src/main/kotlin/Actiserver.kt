@@ -87,7 +87,7 @@ fun newClient (channel: ByteChannel) {
     val mac = (message.slice(3..8).map {"%02X".format(it.toUByte().toInt())}).joinToString(separator="")
     val sensorBits = message[9]
     val bootTime = now()
-    printLog("Actimetre MAC=$mac type $boardType booted at ${bootTime.prettyFormat()}")
+    printLog("Actimetre MAC=$mac type $boardType with sensors %02X booted at ${bootTime.prettyFormat()}".format(sensorBits))
 
     val actimId = Registry[mac] ?: 0
     var newActimId = actimId
@@ -106,7 +106,7 @@ fun newClient (channel: ByteChannel) {
     val a = Self.updateActimetre(newActimId, mac, boardType, bootTime, sensorBits)
 
     val epochTime = bootTime.toEpochSecond()
-    mqttLog("${a.actimName()} MAC=$mac type $boardType booted at $epochTime (${bootTime.prettyFormat()})")
+    mqttLog("${a.actimName()} MAC=$mac type $boardType sensors %02X booted at $epochTime (${bootTime.prettyFormat()})".format(sensorBits))
 
     val outputBuffer = ByteBuffer.allocate(6)
     outputBuffer.put(0, (newActimId shr 8).toByte())

@@ -27,8 +27,8 @@ class Record(buffer: ByteArray, val sensorId: String, bootTime: ZonedDateTime, t
         Instant.ofEpochSecond(thisEpoch + bootEpoch + adjEpoch,
             (((msgMillis + diffMillis) % 1000) * 1000000)),
         ZoneId.of("Z"))
-    private val accelStr = makeAccelStr(buffer.sliceArray(6..11))
-    private val gyroStr = makeGyroStr(buffer.sliceArray(12..15))
+    private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
+    private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
     val textStr: String = dateTime.prettyFormat() +
             ".%03d ".format(dateTime.nano / 1000000L) +
             accelStr + " " + gyroStr
@@ -65,9 +65,9 @@ class SensorInfo(
     @Required private val sensorId: String = "",
     @Required var fileName: String = "",
     @Required private var fileSize: Int = 0,
+    @Transient private var fileDate: ZonedDateTime = TimeZero
 ){
     @Transient private lateinit var fileHandle: BufferedWriter
-    @Transient private lateinit var fileDate: ZonedDateTime
 
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId)}
 
@@ -75,10 +75,10 @@ class SensorInfo(
 
     private fun newDataFile(atDateTime: ZonedDateTime) {
         fileName = sensorName() + "_" + atDateTime.actiFormat() + ".txt"
+        fileDate = atDateTime
         fileSize = 0
         fileHandle = Files.newBufferedWriter(Path(fileName.DATAname()),
             StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.DSYNC)
-        fileDate = atDateTime
     }
 
     fun writeData(record: Record) {
@@ -155,9 +155,9 @@ class Actimetre(
 
     fun run(channel: ByteChannel) {
         this.channel = channel
+        val sensorBuffer = ByteBuffer.allocate(msgLength)
+        var inputLen = 0
         while (true) {
-            val sensorBuffer = ByteBuffer.allocate(msgLength)
-            var inputLen = 0
             try {
                 while (inputLen < msgLength)
                     inputLen += this.channel!!.read(sensorBuffer)

@@ -119,4 +119,4 @@ fun printLog(message: String) {
 
 const val HEADER_LENGTH = 5
 const val DATA_LENGTH = 12
-const val INIT_LENGTH = 13
+const val INIT_LENGTH = 10

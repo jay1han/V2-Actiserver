@@ -25,6 +25,7 @@ fun uploadOrphans() {
 fun uploadFile(fileName: String) {
     println("Uploading $fileName")
 
+    if (fileName == "") return
     val sensorName = fileName.substring(0, 12)
     var lastRepoFile = ""
     var lastRepoSize = 0
