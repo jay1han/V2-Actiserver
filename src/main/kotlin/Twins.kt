@@ -16,21 +16,16 @@ import java.nio.file.StandardOpenOption
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import kotlin.io.path.Path
 
-const val DATA_LENGTH = 16
-const val MSG_LENGTH = DATA_LENGTH * 4
-class Record(buffer: ByteArray, bootTime: ZonedDateTime) {
+class Record(buffer: ByteArray, val sensorId: String, bootTime: ZonedDateTime, thisEpoch: Long, msgMillis: Long) {
     private val bootEpoch = bootTime.toEpochSecond()
-    private val port: Int = (buffer[0].toInt() shr 4) and 0x03
-    private val address: Int = (buffer[0].toInt() and 0x0F)
-    val sensorId = "%1d%1c".format(port + 1, 'A' + address)
-    private val epochSeconds = buffer.getInt3At(1).toLong()
-    private val milliSeconds = buffer[4].toLong() * 256 + buffer[5].toLong()
+    private val diffMillis = buffer[0] * 256 + buffer[1]
+    private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
     val dateTime = ZonedDateTime.ofInstant(
-        Instant.ofEpochSecond(epochSeconds + bootEpoch, milliSeconds * 1000000),
+        Instant.ofEpochSecond(thisEpoch + bootEpoch + adjEpoch,
+            (((msgMillis + diffMillis) % 1000) * 1000000)),
         ZoneId.of("Z"))
     private val accelStr = makeAccelStr(buffer.sliceArray(6..11))
     private val gyroStr = makeGyroStr(buffer.sliceArray(12..15))
@@ -148,8 +143,11 @@ class Actimetre(
     @Serializable(with = DateTimeAsString::class)
     @Required var lastReport = TimeZero
     @Required var sensorList = mutableMapOf<String, SensorInfo>()
+    @Transient var nSensors = 0
     @Transient var channel: ByteChannel? = null
     @Transient var errors: Int = 0
+    @Transient var msgLength = 0
+    @Transient var sensorOrder = mutableListOf<String>()
 
     private fun toCentral(): ActimetreShort {
         return ActimetreShort().init(this)
@@ -158,10 +156,10 @@ class Actimetre(
     fun run(channel: ByteChannel) {
         this.channel = channel
         while (true) {
-            val sensorBuffer = ByteBuffer.allocate(DATA_LENGTH)
+            val sensorBuffer = ByteBuffer.allocate(msgLength)
             var inputLen = 0
             try {
-                while (inputLen < DATA_LENGTH)
+                while (inputLen < msgLength)
                     inputLen += this.channel!!.read(sensorBuffer)
             } catch (e: AsynchronousCloseException) {
                 printLog("${actimName()} AsynchronousCloseException")
@@ -172,28 +170,23 @@ class Actimetre(
             }
 
             val sensor = sensorBuffer.array()
-            if (inputLen < DATA_LENGTH) {
-                println("${actimName()} can't read channel")
-                synchronized(errors) {
-                    errors += 1
-                    if (errors > 100) {
-                        printLog("${actimName()} too many errors, exiting")
-                        return
-                    }
-                }
+            val thisEpoch = sensor.getInt3At(0)
+            val thisMillis = sensor[3] * 256 + sensor[4]
+            var index = 5
+            while (index < msgLength) {
+                val record = Record(sensor.sliceArray(index until (index + DATA_LENGTH)),
+                    sensorOrder[index / DATA_LENGTH], bootTime, thisEpoch.toLong(), thisMillis.toLong())
+                if (!sensorList.containsKey(record.sensorId))
+                    sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
+                sensorList[record.sensorId]!!.writeData(record)
+                index += DATA_LENGTH
             }
-
-            val record = Record(sensor, bootTime)
-            if (!sensorList.containsKey(record.sensorId))
-                sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
-            sensorList[record.sensorId]!!.writeData(record)
-
             lastSeen = now()
         }
     }
 
     fun dies() {
-        synchronized(sensorList) {
+        synchronized(this) {
             if (isDead) return
             isDead = true
             for (sensorInfo in sensorList.values) {
@@ -222,7 +215,7 @@ class Actimetre(
     }
 
     fun loop(now: ZonedDateTime) {
-        synchronized(lastSeen) {
+        synchronized(this) {
             if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
                 dies()
             } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
@@ -231,18 +224,30 @@ class Actimetre(
                 sendHttpRequest(reqString, Json.encodeToString(toCentral()))
                 mqttLog("${actimName()} reported")
                 lastReport = now
-                synchronized(errors) {
-                    errors = 0
-                }
+                errors = 0
             }
         }
     }
 
-    fun setInfo(mac: String, boardType: String, bootTime: ZonedDateTime, lastSeen: ZonedDateTime) {
+    fun setInfo(mac: String, boardType: String, bootTime: ZonedDateTime, lastSeen: ZonedDateTime, sensorBits: Byte) {
         this.mac = mac
         this.boardType = boardType
         this.bootTime = bootTime
         this.lastSeen = lastSeen
+        nSensors = 0
+        for (port in 0..1) {
+            for (address in 0..1) {
+                val bitMask = 1 shl (port * 4 + address)
+                val sensorId = "%d%c".format(port + 1, 'A' + address)
+                    if ((sensorBits.toInt() and bitMask) != 0) {
+                        sensorList[sensorId] = SensorInfo(actimId, sensorId)
+                        nSensors += 1
+                        sensorOrder.add(sensorId)
+                }
+            }
+        }
+        msgLength = nSensors * DATA_LENGTH + HEADER_LENGTH
+        sensorOrder.sort()
     }
 
     fun actimName(): String {
@@ -288,20 +293,20 @@ class Actiserver(
         return ActiserverShort().init(this)
     }
 
-    fun updateActimetre(actimId: Int, mac: String, boardType: String, bootTime: ZonedDateTime): Actimetre {
-         synchronized(actimetreList) {
+    fun updateActimetre(actimId: Int, mac: String, boardType: String, bootTime: ZonedDateTime, sensorBits: Byte): Actimetre {
+         synchronized(this) {
             var a = actimetreList[actimId]
             if (a == null) {
                 a = Actimetre(actimId, serverId = serverId)
                 actimetreList[actimId] = a
             }
-            a.setInfo(mac, boardType, bootTime = bootTime, lastSeen = bootTime)
+            a.setInfo(mac, boardType, bootTime = bootTime, lastSeen = bootTime, sensorBits = sensorBits)
             return a
         }
     }
 
     fun removeActim(actimId: Int) {
-        synchronized(actimetreList) {
+        synchronized(this) {
             actimetreList.remove(actimId)
         }
     }

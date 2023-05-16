@@ -63,7 +63,7 @@ fun main(args: Array<String>) {
 }
 
 fun newClient (channel: ByteChannel) {
-    val messageBuffer = ByteBuffer.allocate(9)
+    val messageBuffer = ByteBuffer.allocate(INIT_LENGTH)
     val inputLen: Int
     println("New client")
 
@@ -77,7 +77,7 @@ fun newClient (channel: ByteChannel) {
         printLog("ClosedChannelException")
         return
     }
-    if (inputLen != messageBuffer.capacity()) {
+    if (inputLen != INIT_LENGTH) {
         printLog("Malformed first message, only $inputLen bytes")
         return
     }
@@ -85,6 +85,7 @@ fun newClient (channel: ByteChannel) {
     val message = messageBuffer.array()
     val boardType = (message.slice(0..2).map {it.toUByte().toInt().toChar()}).joinToString(separator="")
     val mac = (message.slice(3..8).map {"%02X".format(it.toUByte().toInt())}).joinToString(separator="")
+    val sensorBits = message[9]
     val bootTime = now()
     printLog("Actimetre MAC=$mac type $boardType booted at ${bootTime.prettyFormat()}")
 
@@ -102,7 +103,7 @@ fun newClient (channel: ByteChannel) {
         printLog("Known Actim%04d".format(actimId))
     }
 
-    val a = Self.updateActimetre(newActimId, mac, boardType, bootTime)
+    val a = Self.updateActimetre(newActimId, mac, boardType, bootTime, sensorBits)
 
     val epochTime = bootTime.toEpochSecond()
     mqttLog("${a.actimName()} MAC=$mac type $boardType booted at $epochTime (${bootTime.prettyFormat()})")
