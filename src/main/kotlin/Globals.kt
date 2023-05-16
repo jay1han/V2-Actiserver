@@ -39,22 +39,24 @@ class Options(configFileName: String = "") {
         )
         try {
             configFile.forEachLine {
-                val (key, value) = it.split("=").map { it.trim() }
-                when (key.lowercase()) {
-                    "central_host" -> CENTRAL_HOST = value
-                    "upload_size" -> UPLOAD_SIZE = value.toInt()
-                    "max_repo_size" -> MAX_REPO_SIZE = value.toInt()
-                    "upload_time" -> UPLOAD_TIME = Duration.ofHours(value.toLong())
-                    "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
-                    "options" -> for (c in value.toCharArray()) {
-                        when (c) {
-                            'l' -> logging = true
-                            'k' -> kill = true
-                            't' -> test = true
-                            'd' -> daemon = true
-                            'e' -> echo = true
-                            'f' -> fullText = true
-                            else -> {}
+                if (it.trim() != "") {
+                    val (key, value) = it.split("=").map { it.trim() }
+                    when (key.lowercase()) {
+                        "central_host" -> CENTRAL_HOST = value
+                        "upload_size" -> UPLOAD_SIZE = value.toInt()
+                        "max_repo_size" -> MAX_REPO_SIZE = value.toInt()
+                        "upload_time" -> UPLOAD_TIME = Duration.ofHours(value.toLong())
+                        "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
+                        "options" -> for (c in value.toCharArray()) {
+                            when (c) {
+                                'l' -> logging = true
+                                'k' -> kill = true
+                                't' -> test = true
+                                'd' -> daemon = true
+                                'e' -> echo = true
+                                'f' -> fullText = true
+                                else -> {}
+                            }
                         }
                     }
                 }
