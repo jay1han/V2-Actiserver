@@ -11,6 +11,7 @@ import java.net.SocketException
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousCloseException
 import java.nio.channels.ByteChannel
+import java.nio.channels.ClosedChannelException
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.time.Duration
@@ -81,15 +82,13 @@ class SensorInfo(
     }
 
     fun writeData(record: Record) {
-        synchronized(this) {
-            if (fileName == "") newDataFile(record.dateTime)
-            if (fileSize > UPLOAD_SIZE ||
-                Duration.between(fileDate, record.dateTime) > UPLOAD_TIME
-            ) {
-                fileHandle.close()
-                uploadFile(fileName)
-                newDataFile(record.dateTime)
-            }
+        if (fileName == "") newDataFile(record.dateTime)
+        if (fileSize > UPLOAD_SIZE ||
+            Duration.between(fileDate, record.dateTime) > UPLOAD_TIME
+        ) {
+            fileHandle.close()
+            uploadFile(fileName)
+            newDataFile(record.dateTime)
         }
         if (options.fullText) {
             mqttClient.publish(false, Qos.AT_MOST_ONCE, "$MQTT_TEXT/${actimNum()}/$sensorId",
@@ -140,13 +139,13 @@ class Actimetre(
     var bootTime = TimeZero
     var lastSeen = TimeZero
     var lastReport = TimeZero
-    var sensorList = mutableMapOf<String, SensorInfo>()
-    var nSensors = 0
-    var channel: ByteChannel? = null
-    var errors: Int = 0
-    var msgLength = 0
-    var sensorOrder = mutableListOf<String>()
-    var bootEpoch = 0
+    private var sensorList = mutableMapOf<String, SensorInfo>()
+    private var nSensors = 0
+    private var channel: ByteChannel? = null
+    private var errors: Int = 0
+    private var msgLength = 0
+    private var sensorOrder = mutableListOf<String>()
+    private var bootEpoch = 0
 
     private fun toCentral(): ActimetreShort {
         return ActimetreShort().init(this)
@@ -158,10 +157,15 @@ class Actimetre(
             val sensorBuffer = ByteBuffer.allocate(msgLength)
             var inputLen = 0
             try {
-                while (inputLen < msgLength)
+                while (inputLen < msgLength) {
                     inputLen += this.channel!!.read(sensorBuffer)
+                    Thread.yield()
+                }
             } catch (e: AsynchronousCloseException) {
                 printLog("${actimName()} AsynchronousCloseException")
+                return
+            } catch (e: ClosedChannelException) {
+                printLog("${actimName()} ClosedChannelException")
                 return
             } catch (e: SocketException) {
                 printLog("${actimName()} SocketException")
@@ -188,15 +192,16 @@ class Actimetre(
         synchronized(this) {
             if (isDead) return
             isDead = true
+            val reqString = CENTRAL_BIN + "action=actimetre-off" +
+                    "&serverId=${serverId}&actimId=${actimId}"
+            sendHttpRequest(reqString)
+            mqttLog("${actimName()} dies")
             for (sensorInfo in sensorList.values) {
                 uploadFile(sensorInfo.fileName)
             }
+            Self.removeActim(actimId)
+            channel?.close()
         }
-        mqttLog("${actimName()} dies")
-        val reqString = CENTRAL_BIN + "action=actimetre-off" +
-                "&serverId=${serverId}&actimId=${actimId}"
-        sendHttpRequest(reqString)
-        Self.removeActim(actimId)
     }
 
     fun sensorStr(): String {
@@ -220,7 +225,7 @@ class Actimetre(
             val reqString = CENTRAL_BIN + "action=actimetre" +
                     "&serverId=${serverId}&actimId=${actimId}"
             sendHttpRequest(reqString, Json.encodeToString(toCentral()))
-            mqttLog("${actimName()} reported")
+//            mqttLog("${actimName()} is alive")
             lastReport = now
             errors = 0
         }
@@ -292,16 +297,15 @@ class Actiserver(
     }
 
     fun updateActimetre(actimId: Int, mac: String, boardType: String, bootTime: ZonedDateTime, sensorBits: Byte): Actimetre {
-        var a: Actimetre?
         synchronized(this) {
-            a = actimetreList[actimId]
+            var a = actimetreList[actimId]
             if (a == null) {
                 a = Actimetre(actimId, serverId = serverId)
-                actimetreList[actimId] = a!!
+                actimetreList[actimId] = a
             }
+            a.setInfo(mac, boardType, bootTime = bootTime, lastSeen = bootTime, sensorBits = sensorBits)
+            return a
         }
-        a!!.setInfo(mac, boardType, bootTime = bootTime, lastSeen = bootTime, sensorBits = sensorBits)
-        return a!!
     }
 
     fun removeActim(actimId: Int) {

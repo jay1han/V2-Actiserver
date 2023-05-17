@@ -8,6 +8,7 @@ import java.nio.channels.ServerSocketChannel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import kotlin.concurrent.fixedRateTimer
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
@@ -49,15 +50,16 @@ fun main(args: Array<String>) {
         bind(InetSocketAddress(serverAddress, 2883))
     }
 
-    thread(start=true, name="reporting") {reportingLoop()}
-    thread(start=true, name="loop") {mainLoop()}
+    Thread.currentThread().priority = 7
+    thread(start=true, isDaemon = true, name="reporting", priority=1) {reportingLoop()}
+    thread(start=true, isDaemon = true, name="loop", priority=10) {mainLoop()}
 
     var clientCount = 0
     while (true) {
         println("Listening... $clientCount")
         val channel = actiServer.accept() as ByteChannel
         clientCount += 1
-        thread(start=true, name="$clientCount") {
+        thread(start=true, name="$clientCount", priority=4) {
             newClient(channel)
             channel.close()
             println("Closed channel")
@@ -110,8 +112,8 @@ fun newClient (channel: ByteChannel) {
     }
 
     val a = Self.updateActimetre(newActimId, mac, boardType, bootTime, sensorBits)
-
-    mqttLog("${a.actimName()} MAC=$mac type $boardType sensors %02X booted at $epochTime (${bootTime.prettyFormat()})".format(sensorBits))
+    mqttLog("${a.actimName()} MAC=$mac type $boardType sensors %02X booted at ${bootTime.prettyFormat()}".format(sensorBits))
+    selfToCentral()
 
     val outputBuffer = ByteBuffer.allocate(6)
     val sentEpochTime = epochTime - 1
@@ -121,30 +123,31 @@ fun newClient (channel: ByteChannel) {
     outputBuffer.put(3, ((sentEpochTime shr 16) and 0xFF).toByte())
     outputBuffer.put(4, ((sentEpochTime shr 8) and 0xFF).toByte())
     outputBuffer.put(5, (sentEpochTime and 0xFF).toByte())
-
     channel.write(outputBuffer)
 
     a.run(channel)
+
     a.dies()
+    mqttLog("Cleaning up ${a.actimName()}")
     selfToCentral()
 }
 
 fun mainLoop() {
     printLog("Main Loop")
-    while(true) {
+    while (true) {
         val now = now()
         val actimList = Self.actimetreList.values.toList()
         for (a in actimList) {
             a.loop(now)
         }
-        Thread.sleep(1000)
+        Thread.sleep(500L)
     }
 }
 
 fun reportingLoop() {
     printLog("Reporting Loop")
-    while(true) {
-        Thread.sleep(ACTIS_CHECK_MILLIS)
+    fixedRateTimer("Reporting", true, ACTIS_CHECK_MILLIS, ACTIS_CHECK_MILLIS) {
         selfToCentral()
+        Thread.yield()
     }
 }
