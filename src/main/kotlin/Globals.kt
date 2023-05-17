@@ -107,6 +107,17 @@ val mySsid = BufferedReader(FileReader("/etc/hostapd/hostapd.conf"))
 val serverId: Int = mySsid?.substring(5, 8)?.toInt() ?: 0
 val serverName = "Actis%03d".format(serverId)
 
+val myChannel = run {
+    val iw = "/usr/sbin/iw wlan0 info".runCommand()
+    val regex = "channel\\s+([0-9]+)".toRegex()
+    val channel = regex.find(iw)
+    if (channel != null) {
+        channel.groups[1]!!.value.toInt()
+    } else {
+        999
+    }
+}
+
 lateinit var Self: Actiserver
 
 fun printLog(message: String) {

@@ -258,6 +258,7 @@ class ActiserverShort(
     @Required var serverId: Int = 0,
     @Required var mac     : String = "............",
     @Required var ip      : String = "0.0.0.0",
+    @Required var channel : Int = 999,
     @Serializable(with = DateTimeAsString::class)
     @Required var started : ZonedDateTime = TimeZero,
     @Serializable(with = DateTimeAsString::class)
@@ -268,6 +269,7 @@ class ActiserverShort(
         serverId = s.serverId
         mac = s.mac
         ip = s.ip
+        channel = s.channel
         started = s.started
         lastReport = s.lastReport
         actimetreList = s.actimetreList.keys.toSet()
@@ -279,6 +281,7 @@ class Actiserver(
     val serverId: Int = 0,
     val mac     : String = "............",
     val ip      : String = "0.0.0.0",
+    val channel : Int = 999,
     val started : ZonedDateTime = TimeZero
 ) {
     var lastReport = TimeZero

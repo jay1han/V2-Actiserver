@@ -22,7 +22,7 @@ fun main(args: Array<String>) {
 
     println("Welcome to Actiserver")
     println("mySsid=${mySsid}, serverId=$serverId, serverAddress=$serverAddress")
-    println("myIp=$myIp, myMac=$myMac")
+    println("myMac=$myMac, myIp=$myIp, myChannel=$myChannel")
 
     if (serverId > 0) {
         mqttClient = MQTTClient(4, CENTRAL_HOST, 1883, null, keepAlive = 0) {}
@@ -41,7 +41,7 @@ fun main(args: Array<String>) {
     }
 
     uploadOrphans()
-    Self = Actiserver(serverId, myMac, myIp, now())
+    Self = Actiserver(serverId, myMac, myIp, myChannel, now())
     selfToCentral()
 
     val actiServer = ServerSocketChannel.open().apply {
