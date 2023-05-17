@@ -18,7 +18,7 @@ const val REPO_ROOT = "/media/actimetre/Repo"
 const val LOG_FILE = "/etc/actimetre/server.log"
 const val CENTRAL_BIN = "/bin/acticentral.py?"
 val ACTIM_REPORT_TIME: Duration = Duration.ofSeconds(5)
-val ACTIM_DEAD_TIME: Duration = Duration.ofSeconds(3)
+val ACTIM_DEAD_TIME: Duration = Duration.ofSeconds(2)
 const val ACTIS_CHECK_MILLIS = 10000L
 
 var options = Options("")

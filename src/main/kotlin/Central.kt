@@ -49,11 +49,11 @@ fun selfToCentral() {
 lateinit var mqttClient: MQTTClient
 
 fun mqttLog(text: String) {
-    printLog(text)
+    printLog("[${now().prettyFormat()}] $text")
     if (options.logging) {
         try {
             mqttClient.publish(false, Qos.AT_MOST_ONCE, "$MQTT_LOG/$serverId",
-                "[$serverName] $text".toByteArray().toUByteArray())
+                "${now().prettyFormat()} [$serverName] $text".toByteArray().toUByteArray())
         } catch(e: IOException) {}
     }
 }

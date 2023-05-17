@@ -19,13 +19,12 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.io.path.Path
 
-class Record(buffer: ByteArray, val sensorId: String, bootTime: ZonedDateTime, thisEpoch: Long, msgMillis: Long) {
-    private val bootEpoch = bootTime.toEpochSecond()
+class Record(buffer: ByteArray, val sensorId: String, bootEpoch: Int, msgBootEpoch: Int, msgMillis: Int) {
     private val diffMillis = buffer[0] * 256 + buffer[1]
     private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
     val dateTime = ZonedDateTime.ofInstant(
-        Instant.ofEpochSecond(thisEpoch + bootEpoch + adjEpoch,
-            (((msgMillis + diffMillis) % 1000) * 1000000)),
+        Instant.ofEpochSecond((msgBootEpoch + bootEpoch + adjEpoch).toLong(),
+            ((msgMillis + diffMillis) % 1000).toLong() * 1_000_000L),
         ZoneId.of("Z"))
     private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
     private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
@@ -82,12 +81,15 @@ class SensorInfo(
     }
 
     fun writeData(record: Record) {
-        if (fileName == "") newDataFile(record.dateTime)
-        if (fileSize > UPLOAD_SIZE ||
-            Duration.between(fileDate, record.dateTime) > UPLOAD_TIME) {
-            fileHandle.close()
-            uploadFile(fileName)
-            newDataFile(record.dateTime)
+        synchronized(this) {
+            if (fileName == "") newDataFile(record.dateTime)
+            if (fileSize > UPLOAD_SIZE ||
+                Duration.between(fileDate, record.dateTime) > UPLOAD_TIME
+            ) {
+                fileHandle.close()
+                uploadFile(fileName)
+                newDataFile(record.dateTime)
+            }
         }
         if (options.fullText) {
             mqttClient.publish(false, Qos.AT_MOST_ONCE, "$MQTT_TEXT/${actimNum()}/$sensorId",
@@ -128,26 +130,23 @@ class ActimetreShort(
     }
 }
 
-@Serializable
 class Actimetre(
-    @Required val actimId   : Int = 9999,
-    @Required var mac       : String = "............",
-    @Required var boardType : String = "???",
-    @Required val serverId  : Int = 0,
+    val actimId   : Int = 9999,
+    var mac       : String = "............",
+    var boardType : String = "???",
+    val serverId  : Int = 0,
 ) {
-    @Required var isDead = false
-    @Serializable(with = DateTimeAsString::class)
-    @Required var bootTime = TimeZero
-    @Serializable(with = DateTimeAsString::class)
-    @Required var lastSeen = TimeZero
-    @Serializable(with = DateTimeAsString::class)
-    @Required var lastReport = TimeZero
-    @Required var sensorList = mutableMapOf<String, SensorInfo>()
-    @Transient var nSensors = 0
-    @Transient var channel: ByteChannel? = null
-    @Transient var errors: Int = 0
-    @Transient var msgLength = 0
-    @Transient var sensorOrder = mutableListOf<String>()
+    var isDead = false
+    var bootTime = TimeZero
+    var lastSeen = TimeZero
+    var lastReport = TimeZero
+    var sensorList = mutableMapOf<String, SensorInfo>()
+    var nSensors = 0
+    var channel: ByteChannel? = null
+    var errors: Int = 0
+    var msgLength = 0
+    var sensorOrder = mutableListOf<String>()
+    var bootEpoch = 0
 
     private fun toCentral(): ActimetreShort {
         return ActimetreShort().init(this)
@@ -155,9 +154,9 @@ class Actimetre(
 
     fun run(channel: ByteChannel) {
         this.channel = channel
-        val sensorBuffer = ByteBuffer.allocate(msgLength)
-        var inputLen = 0
         while (true) {
+            val sensorBuffer = ByteBuffer.allocate(msgLength)
+            var inputLen = 0
             try {
                 while (inputLen < msgLength)
                     inputLen += this.channel!!.read(sensorBuffer)
@@ -170,12 +169,12 @@ class Actimetre(
             }
 
             val sensor = sensorBuffer.array()
-            val thisEpoch = sensor.getInt3At(0)
-            val thisMillis = sensor[3] * 256 + sensor[4]
+            val msgBootEpoch = sensor.getInt3At(0)
+            val msgMillis = sensor[3] * 256 + sensor[4]
             var index = 5
             while (index < msgLength) {
                 val record = Record(sensor.sliceArray(index until (index + DATA_LENGTH)),
-                    sensorOrder[index / DATA_LENGTH], bootTime, thisEpoch.toLong(), thisMillis.toLong())
+                    sensorOrder[index / DATA_LENGTH], bootEpoch, msgBootEpoch, msgMillis)
                 if (!sensorList.containsKey(record.sensorId))
                     sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
                 sensorList[record.sensorId]!!.writeData(record)
@@ -192,12 +191,12 @@ class Actimetre(
             for (sensorInfo in sensorList.values) {
                 uploadFile(sensorInfo.fileName)
             }
-            mqttLog("${actimName()} dies")
-            val reqString = CENTRAL_BIN + "action=actimetre-off" +
-                    "&serverId=${serverId}&actimId=${actimId}"
-            sendHttpRequest(reqString)
-            Self.removeActim(actimId)
         }
+        mqttLog("${actimName()} dies")
+        val reqString = CENTRAL_BIN + "action=actimetre-off" +
+                "&serverId=${serverId}&actimId=${actimId}"
+        sendHttpRequest(reqString)
+        Self.removeActim(actimId)
     }
 
     fun sensorStr(): String {
@@ -215,17 +214,15 @@ class Actimetre(
     }
 
     fun loop(now: ZonedDateTime) {
-        synchronized(this) {
-            if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
-                dies()
-            } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
-                val reqString = CENTRAL_BIN + "action=actimetre" +
-                        "&serverId=${serverId}&actimId=${actimId}"
-                sendHttpRequest(reqString, Json.encodeToString(toCentral()))
-                mqttLog("${actimName()} reported")
-                lastReport = now
-                errors = 0
-            }
+        if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
+            dies()
+        } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
+            val reqString = CENTRAL_BIN + "action=actimetre" +
+                    "&serverId=${serverId}&actimId=${actimId}"
+            sendHttpRequest(reqString, Json.encodeToString(toCentral()))
+            mqttLog("${actimName()} reported")
+            lastReport = now
+            errors = 0
         }
     }
 
@@ -233,6 +230,7 @@ class Actimetre(
         this.mac = mac
         this.boardType = boardType
         this.bootTime = bootTime
+        bootEpoch = bootTime.toEpochSecond().toInt()
         this.lastSeen = lastSeen
         nSensors = 0
         for (port in 0..1) {
@@ -277,32 +275,30 @@ class ActiserverShort(
     }
 }
 
-@Serializable
 class Actiserver(
-    @Required val serverId: Int = 0,
-    @Required val mac     : String = "............",
-    @Required val ip      : String = "0.0.0.0",
-    @Serializable(with = DateTimeAsString::class)
-    @Required val started : ZonedDateTime = TimeZero
+    val serverId: Int = 0,
+    val mac     : String = "............",
+    val ip      : String = "0.0.0.0",
+    val started : ZonedDateTime = TimeZero
 ) {
-    @Serializable(with = DateTimeAsString::class)
-    @Required var lastReport = TimeZero
-    @Required var actimetreList = mutableMapOf<Int, Actimetre>()
+    var lastReport = TimeZero
+    var actimetreList = mutableMapOf<Int, Actimetre>()
 
     fun toCentral(): ActiserverShort {
         return ActiserverShort().init(this)
     }
 
     fun updateActimetre(actimId: Int, mac: String, boardType: String, bootTime: ZonedDateTime, sensorBits: Byte): Actimetre {
-         synchronized(this) {
-            var a = actimetreList[actimId]
+        var a: Actimetre?
+        synchronized(this) {
+            a = actimetreList[actimId]
             if (a == null) {
                 a = Actimetre(actimId, serverId = serverId)
-                actimetreList[actimId] = a
+                actimetreList[actimId] = a!!
             }
-            a.setInfo(mac, boardType, bootTime = bootTime, lastSeen = bootTime, sensorBits = sensorBits)
-            return a
         }
+        a!!.setInfo(mac, boardType, bootTime = bootTime, lastSeen = bootTime, sensorBits = sensorBits)
+        return a!!
     }
 
     fun removeActim(actimId: Int) {

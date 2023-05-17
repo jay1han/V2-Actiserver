@@ -5,6 +5,9 @@ import java.nio.ByteBuffer
 import java.nio.channels.ByteChannel
 import java.nio.channels.ClosedChannelException
 import java.nio.channels.ServerSocketChannel
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
@@ -86,8 +89,11 @@ fun newClient (channel: ByteChannel) {
     val boardType = (message.slice(0..2).map {it.toUByte().toInt().toChar()}).joinToString(separator="")
     val mac = (message.slice(3..8).map {"%02X".format(it.toUByte().toInt())}).joinToString(separator="")
     val sensorBits = message[9]
-    val bootTime = now()
-    printLog("Actimetre MAC=$mac type $boardType with sensors %02X booted at ${bootTime.prettyFormat()}".format(sensorBits))
+    val epochTime = now().toEpochSecond() + 1
+    val bootTime = ZonedDateTime.ofInstant(
+        Instant.ofEpochSecond(epochTime, 0),
+        ZoneId.of("Z"))
+    printLog("Actimetre MAC=$mac type $boardType sensors %02X booted at ${bootTime.prettyFormat()}".format(sensorBits))
 
     val actimId = Registry[mac] ?: 0
     var newActimId = actimId
@@ -105,16 +111,16 @@ fun newClient (channel: ByteChannel) {
 
     val a = Self.updateActimetre(newActimId, mac, boardType, bootTime, sensorBits)
 
-    val epochTime = bootTime.toEpochSecond()
     mqttLog("${a.actimName()} MAC=$mac type $boardType sensors %02X booted at $epochTime (${bootTime.prettyFormat()})".format(sensorBits))
 
     val outputBuffer = ByteBuffer.allocate(6)
+    val sentEpochTime = epochTime - 1
     outputBuffer.put(0, (newActimId shr 8).toByte())
     outputBuffer.put(1, (newActimId % 256).toByte())
-    outputBuffer.put(2, (epochTime shr 24).toByte())
-    outputBuffer.put(3, ((epochTime shr 16) and 0xFF).toByte())
-    outputBuffer.put(4, ((epochTime shr 8) and 0xFF).toByte())
-    outputBuffer.put(5, (epochTime and 0xFF).toByte())
+    outputBuffer.put(2, (sentEpochTime shr 24).toByte())
+    outputBuffer.put(3, ((sentEpochTime shr 16) and 0xFF).toByte())
+    outputBuffer.put(4, ((sentEpochTime shr 8) and 0xFF).toByte())
+    outputBuffer.put(5, (sentEpochTime and 0xFF).toByte())
 
     channel.write(outputBuffer)
 
