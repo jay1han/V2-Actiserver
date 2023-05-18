@@ -7,6 +7,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import mqtt.packets.Qos
 import java.io.BufferedWriter
+import java.io.FileWriter
+import java.io.Writer
 import java.net.SocketException
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousCloseException
@@ -18,6 +20,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import kotlin.concurrent.thread
 import kotlin.io.path.Path
 
 class Record(buffer: ByteArray, val sensorId: String, bootEpoch: Int, msgBootEpoch: Int, msgMillis: Int) {
@@ -67,7 +70,7 @@ class SensorInfo(
     @Required private var fileSize: Int = 0,
     @Transient private var fileDate: ZonedDateTime = TimeZero
 ){
-    @Transient private lateinit var fileHandle: BufferedWriter
+    @Transient lateinit var fileHandle: BufferedWriter
 
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId)}
 
@@ -78,7 +81,8 @@ class SensorInfo(
         fileDate = atDateTime
         fileSize = 0
         fileHandle = Files.newBufferedWriter(Path(fileName.DATAname()),
-            StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.DSYNC)
+            StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND)
+        printLog("Start Data file $fileName")
     }
 
     fun writeData(record: Record) {
@@ -86,8 +90,7 @@ class SensorInfo(
         if (fileSize > UPLOAD_SIZE ||
             Duration.between(fileDate, record.dateTime) > UPLOAD_TIME
         ) {
-            fileHandle.close()
-            uploadFile(fileName)
+            uploadFile(fileHandle as Writer, fileName)
             newDataFile(record.dateTime)
         }
         if (options.fullText) {
@@ -95,7 +98,6 @@ class SensorInfo(
                 record.textStr.toByteArray().toUByteArray())
         }
         fileHandle.append(record.textStr + "\n")
-        fileHandle.flush()
         fileSize += record.textStr.length + 1
     }
 }
@@ -159,7 +161,7 @@ class Actimetre(
             try {
                 while (inputLen < msgLength) {
                     inputLen += this.channel!!.read(sensorBuffer)
-                    Thread.yield()
+//                    Thread.yield()
                 }
             } catch (e: AsynchronousCloseException) {
                 printLog("${actimName()} Asynchronous Close")
@@ -196,7 +198,7 @@ class Actimetre(
         sendHttpRequest(reqString)
         mqttLog("${actimName()} dies")
         for (sensorInfo in sensorList.values) {
-            uploadFile(sensorInfo.fileName)
+            uploadFile(sensorInfo.fileHandle, sensorInfo.fileName)
         }
         Self.removeActim(actimId)
         channel?.close()

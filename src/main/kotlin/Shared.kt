@@ -7,63 +7,62 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
+import java.io.FileWriter
+import java.io.Writer
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.time.*
 import java.time.format.DateTimeFormatter
 import kotlin.concurrent.thread
-import kotlin.io.path.Path
-import kotlin.io.path.fileSize
-import kotlin.io.path.forEachDirectoryEntry
-import kotlin.io.path.moveTo
+import kotlin.io.path.*
 
 fun uploadOrphans() {
     Path(DATA_ROOT).forEachDirectoryEntry {
-        uploadFile(it.fileName.toString())
+        uploadFile(null, it.fileName.toString())
     }
 }
 
-fun uploadFile(fileName: String) {
-    if (fileName == "") return
-    val sensorName = fileName.substring(0, 12)
-    var lastRepoFile = ""
-    var lastRepoSize = 0
-    var lastRepoDate = TimeZero
-    Path(REPO_ROOT).forEachDirectoryEntry {
-        val thisRepoFile = it.fileName.toString()
-        val thisRepoDate = thisRepoFile.parseFileDate()
-        if (sensorName == thisRepoFile.substring(0, 12)) {
-            if (lastRepoFile == "" ||
-                (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
-            ) {
-                lastRepoFile = thisRepoFile
-                lastRepoSize = it.fileSize().toInt()
-                lastRepoDate = thisRepoDate
+fun uploadFile(fileHandle: Writer?, fileName: String) =
+    thread(start = true, isDaemon = true, name = "upload", priority = 2) {
+        fileHandle?.close()
+        val sensorName = fileName.substring(0, 12)
+        var lastRepoFile = ""
+        var lastRepoSize = 0
+        var lastRepoDate = TimeZero
+        Path(REPO_ROOT).forEachDirectoryEntry {
+            val thisRepoFile = it.fileName.toString()
+            val thisRepoDate = thisRepoFile.parseFileDate()
+            if (sensorName == thisRepoFile.substring(0, 12)) {
+                if (lastRepoFile == "" ||
+                    (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
+                ) {
+                    lastRepoFile = thisRepoFile
+                    lastRepoSize = it.fileSize().toInt()
+                    lastRepoDate = thisRepoDate
+                }
             }
+        }
+
+        if (lastRepoFile == "" ||
+            (Duration.between(lastRepoDate, fileName.parseFileDate()) > MAX_REPO_TIME) ||
+            (lastRepoSize > MAX_REPO_SIZE)) {
+            Path(fileName.DATAname()).moveTo(Path(fileName.REPOname()), overwrite = true)
+            mqttLog("Repo $fileName")
+        } else {
+            appendFile(fileName.DATAname(), lastRepoFile.REPOname())
+            mqttLog("Repo $lastRepoFile")
         }
     }
 
-    if (lastRepoFile == "" ||
-        (Duration.between(lastRepoDate, fileName.parseFileDate()) > MAX_REPO_TIME) ||
-        (lastRepoSize > MAX_REPO_SIZE)) {
-        Path(fileName.DATAname()).moveTo(Path(fileName.REPOname()), overwrite = true)
-        mqttLog("Repo $fileName")
-    } else {
-        appendFile(fileName.DATAname(), lastRepoFile.REPOname())
-        mqttLog("Repo $lastRepoFile")
-    }
+fun appendFile(inFileName: String, outFileName: String) {
+    val infile = Files.newBufferedReader(Path(inFileName))
+    val outfile =
+        Files.newBufferedWriter(Path(outFileName), StandardOpenOption.APPEND, StandardOpenOption.WRITE)
+    outfile.append(infile.readText())
+    infile.close()
+    outfile.close()
+    Path(inFileName).deleteExisting()
 }
-
-fun appendFile(inFileName: String, outfileName: String) =
-    thread(start = true, isDaemon = true, name = "append", priority = 2) {
-        val infile = Files.newBufferedReader(Path(inFileName))
-        val outfile = Files.newBufferedWriter(Path(outfileName),
-            StandardOpenOption.APPEND, StandardOpenOption.WRITE)
-        outfile.append(infile.readText())
-        infile.close()
-        outfile.close()
-        Files.delete(Path(inFileName))
-    }
 
 var Registry = mutableMapOf<String, Int>()
 
