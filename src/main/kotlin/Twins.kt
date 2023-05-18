@@ -189,19 +189,17 @@ class Actimetre(
     }
 
     fun dies() {
-        synchronized(this) {
-            if (isDead) return
-            isDead = true
-            val reqString = CENTRAL_BIN + "action=actimetre-off" +
-                    "&serverId=${serverId}&actimId=${actimId}"
-            sendHttpRequest(reqString)
-            mqttLog("${actimName()} dies")
-            for (sensorInfo in sensorList.values) {
-                uploadFile(sensorInfo.fileName)
-            }
-            Self.removeActim(actimId)
-            channel?.close()
+        if (isDead) return
+        isDead = true
+        val reqString = CENTRAL_BIN + "action=actimetre-off" +
+                "&serverId=${serverId}&actimId=${actimId}"
+        sendHttpRequest(reqString)
+        mqttLog("${actimName()} dies")
+        for (sensorInfo in sensorList.values) {
+            uploadFile(sensorInfo.fileName)
         }
+        Self.removeActim(actimId)
+        channel?.close()
     }
 
     fun sensorStr(): String {
@@ -220,7 +218,10 @@ class Actimetre(
 
     fun loop(now: ZonedDateTime) {
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
-            dies()
+            if (isDead) return
+            mqttLog("Killing ${actimName()}")
+            channel?.close()
+//            dies()
         } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
             val reqString = CENTRAL_BIN + "action=actimetre" +
                     "&serverId=${serverId}&actimId=${actimId}"
