@@ -162,13 +162,13 @@ class Actimetre(
                     Thread.yield()
                 }
             } catch (e: AsynchronousCloseException) {
-                printLog("${actimName()} AsynchronousCloseException")
+                printLog("${actimName()} Asynchronous Close")
                 return
             } catch (e: ClosedChannelException) {
-                printLog("${actimName()} ClosedChannelException")
+                printLog("${actimName()} Closed Channel")
                 return
             } catch (e: SocketException) {
-                printLog("${actimName()} SocketException")
+                printLog("${actimName()} Socket")
                 return
             }
 

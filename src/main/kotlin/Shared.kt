@@ -11,6 +11,7 @@ import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.time.*
 import java.time.format.DateTimeFormatter
+import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
@@ -53,15 +54,16 @@ fun uploadFile(fileName: String) {
     }
 }
 
-fun appendFile(inFileName: String, outfileName: String) {
-    val infile = Files.newBufferedReader(Path(inFileName))
-    val outfile = Files.newBufferedWriter(Path(outfileName),
-        StandardOpenOption.APPEND, StandardOpenOption.WRITE)
-    outfile.append(infile.readText())
-    infile.close()
-    outfile.close()
-    Files.delete(Path(inFileName))
-}
+fun appendFile(inFileName: String, outfileName: String) =
+    thread(start = true, isDaemon = true, name = "append", priority = 2) {
+        val infile = Files.newBufferedReader(Path(inFileName))
+        val outfile = Files.newBufferedWriter(Path(outfileName),
+            StandardOpenOption.APPEND, StandardOpenOption.WRITE)
+        outfile.append(infile.readText())
+        infile.close()
+        outfile.close()
+        Files.delete(Path(inFileName))
+    }
 
 var Registry = mutableMapOf<String, Int>()
 
