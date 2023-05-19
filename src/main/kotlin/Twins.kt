@@ -20,11 +20,11 @@ import kotlin.io.path.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
 
-class Record(buffer: ByteArray, val sensorId: String, bootEpoch: Int, msgBootEpoch: Int, msgMillis: Int) {
-    private val diffMillis = buffer[0] * 256 + buffer[1]
+class Record(buffer: ByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Int) {
+    private val diffMillis = buffer[0].toUByte().toInt() * 256 + buffer[1].toUByte().toInt()
     private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
     val dateTime = ZonedDateTime.ofInstant(
-        Instant.ofEpochSecond((msgBootEpoch + bootEpoch + adjEpoch).toLong(),
+        Instant.ofEpochSecond((msgBootEpoch + bootEpoch + adjEpoch),
             ((msgMillis + diffMillis) % 1000).toLong() * 1_000_000L),
         ZoneId.of("Z"))
     private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
@@ -179,7 +179,7 @@ class Actimetre(
     private var errors: Int = 0
     private var msgLength = 0
     private var sensorOrder = mutableListOf<String>()
-    private var bootEpoch = 0
+    private var bootEpoch = 0L
 
     private fun toCentral(): ActimetreShort {
         return ActimetreShort().init(this)
@@ -209,7 +209,7 @@ class Actimetre(
 
             val sensor = sensorBuffer.array()
             val msgBootEpoch = sensor.getInt3At(0)
-            val msgMillis = sensor[3] * 256 + sensor[4]
+            val msgMillis = sensor[3].toUByte().toInt() * 256 + sensor[4].toUByte().toInt()
             var index = 5
             while (index < msgLength) {
                 val record = Record(sensor.sliceArray(index until (index + DATA_LENGTH)),
@@ -272,7 +272,7 @@ class Actimetre(
         this.mac = mac
         this.boardType = boardType
         this.bootTime = bootTime
-        bootEpoch = bootTime.toEpochSecond().toInt()
+        bootEpoch = bootTime.toEpochSecond()
         this.lastSeen = lastSeen
         nSensors = 0
         for (port in 0..1) {
