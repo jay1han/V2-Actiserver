@@ -7,62 +7,11 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
-import java.io.FileWriter
-import java.io.Writer
-import java.nio.file.Files
-import java.nio.file.StandardOpenOption
-import java.time.*
+import java.time.Clock
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import kotlin.concurrent.thread
-import kotlin.io.path.*
-
-fun uploadOrphans() {
-    Path(DATA_ROOT).forEachDirectoryEntry {
-        uploadFile(null, it.fileName.toString())
-    }
-}
-
-fun uploadFile(fileHandle: Writer?, fileName: String) =
-    thread(start = true, isDaemon = true, name = "upload", priority = 2) {
-        fileHandle?.close()
-        val sensorName = fileName.substring(0, 12)
-        var lastRepoFile = ""
-        var lastRepoSize = 0
-        var lastRepoDate = TimeZero
-        Path(REPO_ROOT).forEachDirectoryEntry {
-            val thisRepoFile = it.fileName.toString()
-            val thisRepoDate = thisRepoFile.parseFileDate()
-            if (sensorName == thisRepoFile.substring(0, 12)) {
-                if (lastRepoFile == "" ||
-                    (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
-                ) {
-                    lastRepoFile = thisRepoFile
-                    lastRepoSize = it.fileSize().toInt()
-                    lastRepoDate = thisRepoDate
-                }
-            }
-        }
-
-        if (lastRepoFile == "" ||
-            (Duration.between(lastRepoDate, fileName.parseFileDate()) > MAX_REPO_TIME) ||
-            (lastRepoSize > MAX_REPO_SIZE)) {
-            Path(fileName.DATAname()).moveTo(Path(fileName.REPOname()), overwrite = true)
-            mqttLog("Repo $fileName")
-        } else {
-            appendFile(fileName.DATAname(), lastRepoFile.REPOname())
-            mqttLog("Repo $lastRepoFile")
-        }
-    }
-
-fun appendFile(inFileName: String, outFileName: String) {
-    val infile = Files.newBufferedReader(Path(inFileName))
-    val outfile =
-        Files.newBufferedWriter(Path(outFileName), StandardOpenOption.APPEND, StandardOpenOption.WRITE)
-    outfile.append(infile.readText())
-    infile.close()
-    outfile.close()
-    Path(inFileName).deleteExisting()
-}
 
 var Registry = mutableMapOf<String, Int>()
 
@@ -70,8 +19,7 @@ fun loadRegistry(registryText: String) {
     Registry = Json.decodeFromString<MutableMap<String,Int>>(registryText)
 }
 
-fun String.DATAname(): String {return "$DATA_ROOT/$this" }
-fun String.REPOname(): String {return "$REPO_ROOT/$this" }
+fun String.fullName(): String {return "$REPO_ROOT/$this"}
 
 private val actiFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
 private val prettyFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")

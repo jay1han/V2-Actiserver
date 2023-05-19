@@ -41,7 +41,6 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 
-    uploadOrphans()
     Self = Actiserver(serverId, myMac, myIp, myChannel, now())
     selfToCentral()
 
@@ -50,9 +49,9 @@ fun main(args: Array<String>) {
         bind(InetSocketAddress(serverAddress, 2883))
     }
 
-    Thread.currentThread().priority = 7
-    thread(start=true, isDaemon = true, name="reporting", priority=1) {reportingLoop()}
-    thread(start=true, isDaemon = true, name="loop", priority=10) {mainLoop()}
+    Thread.currentThread().priority = 6
+    thread(start=true, isDaemon = true, name="reporting", priority=2) {reportingLoop()}
+    thread(start=true, isDaemon = true, name="loop", priority=9) {mainLoop()}
 
     var clientCount = 0
     while (true) {

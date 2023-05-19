@@ -1,5 +1,4 @@
 
-
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -8,20 +7,18 @@ import kotlinx.serialization.json.Json
 import mqtt.packets.Qos
 import java.io.BufferedWriter
 import java.io.FileWriter
-import java.io.Writer
 import java.net.SocketException
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousCloseException
 import java.nio.channels.ByteChannel
 import java.nio.channels.ClosedChannelException
-import java.nio.file.Files
-import java.nio.file.StandardOpenOption
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.concurrent.thread
 import kotlin.io.path.Path
+import kotlin.io.path.fileSize
+import kotlin.io.path.forEachDirectoryEntry
 
 class Record(buffer: ByteArray, val sensorId: String, bootEpoch: Int, msgBootEpoch: Int, msgMillis: Int) {
     private val diffMillis = buffer[0] * 256 + buffer[1]
@@ -76,21 +73,51 @@ class SensorInfo(
 
     private fun actimNum(): String {return "%04d".format(actimId)}
 
+    private fun findDataFile(atDateTime: ZonedDateTime) {
+        var lastRepoFile = ""
+        var lastRepoSize = 0
+        var lastRepoDate = TimeZero
+        Path(REPO_ROOT).forEachDirectoryEntry {
+            val thisRepoFile = it.fileName.toString()
+            val thisRepoDate = thisRepoFile.parseFileDate()
+            if (sensorName() == thisRepoFile.substring(0, 12)) {
+                if (lastRepoFile == "" ||
+                    (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
+                ) {
+                    lastRepoFile = thisRepoFile
+                    lastRepoSize = it.fileSize().toInt()
+                    lastRepoDate = thisRepoDate
+                }
+            }
+        }
+
+        if (lastRepoFile == ""
+            || (Duration.between(lastRepoDate, atDateTime) > MAX_REPO_TIME)
+            || (lastRepoSize > MAX_REPO_SIZE)) {
+            newDataFile(atDateTime)
+        } else {
+            fileName = lastRepoFile
+            fileDate = lastRepoDate
+            fileSize = lastRepoSize
+            fileHandle = BufferedWriter(FileWriter(lastRepoFile.fullName(), true), 4096)
+            mqttLog("Continue data file $lastRepoFile")
+        }
+    }
+
     private fun newDataFile(atDateTime: ZonedDateTime) {
         fileName = sensorName() + "_" + atDateTime.actiFormat() + ".txt"
         fileDate = atDateTime
         fileSize = 0
-        fileHandle = Files.newBufferedWriter(Path(fileName.DATAname()),
-            StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.APPEND)
-        printLog("Start Data file $fileName")
+        fileHandle = BufferedWriter(FileWriter(fileName.fullName(), false), 4096)
+        mqttLog("Start data file $fileName")
     }
 
     fun writeData(record: Record) {
-        if (fileName == "") newDataFile(record.dateTime)
-        if (fileSize > UPLOAD_SIZE ||
-            Duration.between(fileDate, record.dateTime) > UPLOAD_TIME
+        if (fileName == "") findDataFile(record.dateTime)
+        else if (fileSize > MAX_REPO_SIZE ||
+            Duration.between(fileDate, record.dateTime) > MAX_REPO_TIME
         ) {
-            uploadFile(fileHandle as Writer, fileName)
+            fileHandle.close()
             newDataFile(record.dateTime)
         }
         if (options.fullText) {
@@ -99,6 +126,11 @@ class SensorInfo(
         }
         fileHandle.append(record.textStr + "\n")
         fileSize += record.textStr.length + 1
+    }
+
+    fun flushIfOpen() {
+        if (this::fileHandle.isInitialized)
+            fileHandle.flush()
     }
 }
 
@@ -143,7 +175,7 @@ class Actimetre(
     var lastReport = TimeZero
     private var sensorList = mutableMapOf<String, SensorInfo>()
     private var nSensors = 0
-    private var channel: ByteChannel? = null
+    private lateinit var channel: ByteChannel
     private var errors: Int = 0
     private var msgLength = 0
     private var sensorOrder = mutableListOf<String>()
@@ -159,9 +191,10 @@ class Actimetre(
             val sensorBuffer = ByteBuffer.allocate(msgLength)
             var inputLen = 0
             try {
+                inputLen = this.channel.read(sensorBuffer)
                 while (inputLen < msgLength) {
-                    inputLen += this.channel!!.read(sensorBuffer)
-//                    Thread.yield()
+                    Thread.yield()
+                    inputLen += this.channel.read(sensorBuffer)
                 }
             } catch (e: AsynchronousCloseException) {
                 printLog("${actimName()} Asynchronous Close")
@@ -198,10 +231,10 @@ class Actimetre(
         sendHttpRequest(reqString)
         mqttLog("${actimName()} dies")
         for (sensorInfo in sensorList.values) {
-            uploadFile(sensorInfo.fileHandle, sensorInfo.fileName)
+            sensorInfo.fileHandle.close()
         }
         Self.removeActim(actimId)
-        channel?.close()
+        if (this::channel.isInitialized) channel.close()
     }
 
     fun sensorStr(): String {
@@ -222,7 +255,7 @@ class Actimetre(
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
             if (isDead) return
             mqttLog("Killing ${actimName()}")
-            channel?.close()
+            if (this::channel.isInitialized) channel.close()
 //            dies()
         } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
             val reqString = CENTRAL_BIN + "action=actimetre" +
@@ -231,6 +264,7 @@ class Actimetre(
 //            mqttLog("${actimName()} is alive")
             lastReport = now
             errors = 0
+            sensorList.values.map {it.flushIfOpen()}
         }
     }
 
