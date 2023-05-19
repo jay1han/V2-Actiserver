@@ -18,7 +18,7 @@ fun main(args: Array<String>) {
     var serverAddress = "192.168.${serverId}.1"
 
     if (options.test) {
-        serverAddress = "192.168.1.50"
+        serverAddress = myIp
     }
 
     println("Welcome to Actiserver")
@@ -26,14 +26,14 @@ fun main(args: Array<String>) {
     println("myMac=$myMac, myIp=$myIp, myChannel=$myChannel")
 
     if (serverId > 0) {
-        mqttClient = MQTTClient(4, CENTRAL_HOST, 1883, null, keepAlive = 0) {}
+        mqttClient = MQTTClient(4, CENTRAL_HOST, MQTT_PORT, null, keepAlive = 0) {}
         mqttLog("$serverName started")
 
         if (options.echo) println("Echo on")
         if (options.logging) println("Logging on")
         if (options.test) println("Test mode")
         if (options.fullText) println("Full text")
-        println("CENTRAL_HOST = $CENTRAL_HOST")
+        println("CENTRAL_HOST = $CENTRAL_HOST, ACTI_PORT=$ACTI_PORT, MQTT_PORT=$MQTT_PORT")
         println("UPLOAD_SIZE = $UPLOAD_SIZE; UPLOAD_TIME = $UPLOAD_TIME")
         println("MAX_REPO_SIZE = $MAX_REPO_SIZE; MAX_REPO_TIME = $MAX_REPO_TIME")
     } else {
@@ -46,7 +46,7 @@ fun main(args: Array<String>) {
 
     val actiServer = ServerSocketChannel.open().apply {
         configureBlocking(true)
-        bind(InetSocketAddress(serverAddress, 2883))
+        bind(InetSocketAddress(serverAddress, ACTI_PORT))
     }
 
     Thread.currentThread().priority = 6

@@ -12,7 +12,7 @@ import java.net.URL
 
 fun sendHttpRequest(reqString: String, data: String = ""): String {
     printLog(reqString + if (data != "") ", data=$data" else "")
-    val centralURL = URL("HTTP", CENTRAL_HOST, reqString)
+    val centralURL = URL("HTTP", CENTRAL_HOST, HTTP_PORT, reqString)
     val connection = centralURL.openConnection() as HttpURLConnection
     connection.doInput = true
     if (data != "") {
