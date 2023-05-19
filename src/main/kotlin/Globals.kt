@@ -12,7 +12,7 @@ var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 
 const val MQTT_LOG = "Acti/Log"
 const val MQTT_TEXT = "Acti"
-const val REPO_ROOT = "/media/actimetre"
+var REPO_ROOT = "/media/actimetre"
 const val LOG_FILE = "/etc/actimetre/server.log"
 const val CENTRAL_BIN = "/bin/acticentral.py?"
 val ACTIM_REPORT_TIME: Duration = Duration.ofSeconds(5)
@@ -33,14 +33,15 @@ class Options(configFileName: String = "") {
         println("Loading options from '$configFileName'")
         val configFile = File(
             if (configFileName != "") configFileName
-            else "/etc/actimetre/actimetre.conf"
+            else "/etc/actimetre/actiserver.conf"
         )
         try {
             configFile.forEachLine {
                 if (it.trim() != "") {
                     val (key, value) = it.split("=").map { it.trim() }
                     when (key.lowercase()) {
-                        "central_host" -> CENTRAL_HOST = value
+                        "central_host"  -> CENTRAL_HOST = value
+                        "repo_root"     -> REPO_ROOT = value
                         "max_repo_size" -> MAX_REPO_SIZE = value.toInt()
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
                         "options" -> for (c in value.toCharArray()) {
