@@ -38,13 +38,13 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
 fun selfToCentral() {
     synchronized(Self) {
         Self.lastReport = now()
-        mqttLog("Alive with " +
+        mqttLog("v${VERSION_STRING} Alive with " +
                 if (Self.actimetreList.count() == 0) "no Actimetres"
                 else Self.actimetreList.keys.sorted().joinToString(separator = " ") {
                     "Actim%04d".format(it)
                 })
         val reqString = CENTRAL_BIN +
-                "action=actiserver&serverId=${serverId}&ip=${myIp}&mac=${myMac}"
+                "action=actiserver&serverId=${serverId}&ip=${myIp}&mac=${myMac}&version=${VERSION_STRING}&machine=$myMachine"
         val data = Json.encodeToString(Self.toCentral())
         val registryText = sendHttpRequest(reqString, data)
         loadRegistry(registryText)

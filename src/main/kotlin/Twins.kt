@@ -139,6 +139,7 @@ class ActimetreShort(
     @Required var actimId           : Int = 9999,
     @Required private var mac       : String = "............",
     @Required private var boardType : String = "???",
+    @Required private var version   : String = "000",
     @Required private var serverId  : Int = 0,
     @Required private var isDead    : Boolean = false,
     @Serializable(with = DateTimeAsString::class)
@@ -153,6 +154,7 @@ class ActimetreShort(
         actimId = a.actimId
         mac = a.mac
         boardType = a.boardType
+        version = a.version
         serverId = a.serverId
         isDead = a.isDead
         bootTime = a.bootTime
@@ -167,6 +169,7 @@ class Actimetre(
     val actimId   : Int = 9999,
     var mac       : String = "............",
     var boardType : String = "???",
+    var version   : String = "000",
     val serverId  : Int = 0,
 ) {
     var isDead = false
@@ -268,9 +271,10 @@ class Actimetre(
         }
     }
 
-    fun setInfo(mac: String, boardType: String, bootTime: ZonedDateTime, lastSeen: ZonedDateTime, sensorBits: Byte) {
+    fun setInfo(mac: String, boardType: String, version: String, bootTime: ZonedDateTime, lastSeen: ZonedDateTime, sensorBits: Byte) {
         this.mac = mac
         this.boardType = boardType
+        this.version = version
         this.bootTime = bootTime
         bootEpoch = bootTime.toEpochSecond()
         this.lastSeen = lastSeen
@@ -299,6 +303,8 @@ class Actimetre(
 class ActiserverShort(
     @Required var serverId: Int = 0,
     @Required var mac     : String = "............",
+    @Required var machine : String = "Unknown",
+    @Required var version : String = "000",
     @Required var ip      : String = "0.0.0.0",
     @Required var channel : Int = 999,
     @Serializable(with = DateTimeAsString::class)
@@ -310,6 +316,8 @@ class ActiserverShort(
     fun init(s: Actiserver) : ActiserverShort {
         serverId = s.serverId
         mac = s.mac
+        machine = s.machine
+        version = s.version
         ip = s.ip
         channel = s.channel
         started = s.started
@@ -322,6 +330,8 @@ class ActiserverShort(
 class Actiserver(
     val serverId: Int = 0,
     val mac     : String = "............",
+    val machine : String = "Unknown",
+    val version : String = "000",
     val ip      : String = "0.0.0.0",
     val channel : Int = 999,
     val started : ZonedDateTime = TimeZero
@@ -333,14 +343,14 @@ class Actiserver(
         return ActiserverShort().init(this)
     }
 
-    fun updateActimetre(actimId: Int, mac: String, boardType: String, bootTime: ZonedDateTime, sensorBits: Byte): Actimetre {
+    fun updateActimetre(actimId: Int, mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: Byte): Actimetre {
         synchronized(this) {
             var a = actimetreList[actimId]
             if (a == null) {
                 a = Actimetre(actimId, serverId = serverId)
                 actimetreList[actimId] = a
             }
-            a.setInfo(mac, boardType, bootTime = bootTime, lastSeen = bootTime, sensorBits = sensorBits)
+            a.setInfo(mac, boardType, version, bootTime = bootTime, lastSeen = bootTime, sensorBits = sensorBits)
             return a
         }
     }

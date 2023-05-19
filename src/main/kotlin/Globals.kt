@@ -3,6 +3,8 @@ import java.io.*
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
+const val VERSION_STRING = "190"
+
 var CENTRAL_HOST = "192.168.1.9"
 var MQTT_PORT = 1883
 var ACTI_PORT = 2883
@@ -115,6 +117,17 @@ val myChannel = run {
     }
 }
 
+val myMachine = run {
+    val inxi = "/usr/bin/inxi -M -c 0".runCommand()
+    val regex = "System:\\s(\\S+\\s+\\S+\\s+\\S+)".toRegex()
+    val machine = regex.find(inxi)
+    if (machine != null) {
+        machine.groups[1]!!.value.replace("\\s".toRegex(), "")
+    } else {
+        "Unknown"
+    }
+}
+
 lateinit var Self: Actiserver
 
 fun printLog(message: String) {
@@ -127,4 +140,4 @@ fun printLog(message: String) {
 
 const val HEADER_LENGTH = 5
 const val DATA_LENGTH = 12
-const val INIT_LENGTH = 10
+const val INIT_LENGTH = 13

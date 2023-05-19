@@ -40,7 +40,7 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 
-    Self = Actiserver(serverId, myMac, myIp, myChannel, now())
+    Self = Actiserver(serverId, myMac, myMachine, VERSION_STRING, myIp, myChannel, now())
     selfToCentral()
 
     val actiServer = ServerSocketChannel.open().apply {
@@ -89,17 +89,18 @@ fun newClient (channel: ByteChannel) {
     val boardType = (message.slice(0..2).map {it.toUByte().toInt().toChar()}).joinToString(separator="")
     val mac = (message.slice(3..8).map {"%02X".format(it.toUByte().toInt())}).joinToString(separator="")
     val sensorBits = message[9]
+    val version = message.slice(10..12).joinToString(separator="") {"%c".format(it)}
     val epochTime = now().toEpochSecond() + 1
     val bootTime = ZonedDateTime.ofInstant(
         Instant.ofEpochSecond(epochTime, 0),
         ZoneId.of("Z"))
-    printLog("Actimetre MAC=$mac type $boardType sensors %02X booted at ${bootTime.prettyFormat()}".format(sensorBits))
+    printLog("Actimetre MAC=$mac type $boardType version $version sensors %02X booted at ${bootTime.prettyFormat()}".format(sensorBits))
 
     val actimId = Registry[mac] ?: 0
     var newActimId = actimId
     if (actimId == 0) {
         val reqString = CENTRAL_BIN +
-                "action=actimetre-new&mac=${mac}&boardType=${boardType}&serverId=${serverId}&bootTime=${bootTime.actiFormat()}"
+                "action=actimetre-new&mac=${mac}&boardType=${boardType}&version=${version}&serverId=${serverId}&bootTime=${bootTime.actiFormat()}"
         val responseString = sendHttpRequest(reqString, "")
         newActimId = responseString.trim().toInt()
         Registry[mac] = newActimId
@@ -109,8 +110,8 @@ fun newClient (channel: ByteChannel) {
         printLog("Known Actim%04d".format(actimId))
     }
 
-    val a = Self.updateActimetre(newActimId, mac, boardType, bootTime, sensorBits)
-    mqttLog("${a.actimName()} MAC=$mac type $boardType sensors %02X booted at ${bootTime.prettyFormat()}".format(sensorBits))
+    val a = Self.updateActimetre(newActimId, mac, boardType, version, bootTime, sensorBits)
+    mqttLog("${a.actimName()} MAC=$mac type $boardType version $version sensors %02X booted at ${bootTime.prettyFormat()}".format(sensorBits))
     selfToCentral()
 
     val outputBuffer = ByteBuffer.allocate(6)
