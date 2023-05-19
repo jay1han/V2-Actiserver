@@ -34,7 +34,6 @@ fun main(args: Array<String>) {
         if (options.test) println("Test mode")
         if (options.fullText) println("Full text")
         println("CENTRAL_HOST = $CENTRAL_HOST, ACTI_PORT=$ACTI_PORT, MQTT_PORT=$MQTT_PORT")
-        println("UPLOAD_SIZE = $UPLOAD_SIZE; UPLOAD_TIME = $UPLOAD_TIME")
         println("MAX_REPO_SIZE = $MAX_REPO_SIZE; MAX_REPO_TIME = $MAX_REPO_TIME")
     } else {
         println("Unable to discover serverId, quitting")
