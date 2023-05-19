@@ -132,6 +132,11 @@ class SensorInfo(
         if (this::fileHandle.isInitialized)
             fileHandle.flush()
     }
+
+    fun closeIfOpen() {
+        if (this::fileHandle.isInitialized)
+            fileHandle.close()
+    }
 }
 
 @Serializable
@@ -234,7 +239,7 @@ class Actimetre(
         sendHttpRequest(reqString)
         mqttLog("${actimName()} dies")
         for (sensorInfo in sensorList.values) {
-            sensorInfo.fileHandle.close()
+            sensorInfo.closeIfOpen()
         }
         Self.removeActim(actimId)
         if (this::channel.isInitialized) channel.close()
