@@ -7,9 +7,7 @@ var CENTRAL_HOST = "192.168.1.9"
 var MQTT_PORT = 1883
 var ACTI_PORT = 2883
 var HTTP_PORT = 80
-var UPLOAD_SIZE = 1_000_000
 var MAX_REPO_SIZE = 1_000_000_000
-var UPLOAD_TIME: Duration = Duration.ofHours(1)
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 
 const val MQTT_LOG = "Acti/Log"
@@ -43,9 +41,7 @@ class Options(configFileName: String = "") {
                     val (key, value) = it.split("=").map { it.trim() }
                     when (key.lowercase()) {
                         "central_host" -> CENTRAL_HOST = value
-                        "upload_size" -> UPLOAD_SIZE = value.toInt()
                         "max_repo_size" -> MAX_REPO_SIZE = value.toInt()
-                        "upload_time" -> UPLOAD_TIME = Duration.ofHours(value.toLong())
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
                         "options" -> for (c in value.toCharArray()) {
                             when (c) {
