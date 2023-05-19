@@ -12,7 +12,7 @@ var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 
 const val MQTT_LOG = "Acti/Log"
 const val MQTT_TEXT = "Acti"
-const val REPO_ROOT = "/media/actimetre/Repo"
+const val REPO_ROOT = "/media/actimetre"
 const val LOG_FILE = "/etc/actimetre/server.log"
 const val CENTRAL_BIN = "/bin/acticentral.py?"
 val ACTIM_REPORT_TIME: Duration = Duration.ofSeconds(5)
