@@ -21,7 +21,7 @@ fun main(args: Array<String>) {
         serverAddress = myIp
     }
 
-    println("Welcome to Actiserver")
+    println("Welcome to Actiserver $VERSION_STRING")
     println("mySsid=${mySsid}, serverId=$serverId, serverAddress=$serverAddress")
     println("myMac=$myMac, myIp=$myIp, myChannel=$myChannel")
 

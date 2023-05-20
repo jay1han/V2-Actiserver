@@ -7,6 +7,7 @@ import kotlinx.serialization.json.Json
 import mqtt.packets.Qos
 import java.io.BufferedWriter
 import java.io.FileWriter
+import java.io.IOException
 import java.net.SocketException
 import java.nio.ByteBuffer
 import java.nio.channels.AsynchronousCloseException
@@ -79,14 +80,16 @@ class SensorInfo(
         var lastRepoDate = TimeZero
         Path(REPO_ROOT).forEachDirectoryEntry {
             val thisRepoFile = it.fileName.toString()
-            val thisRepoDate = thisRepoFile.parseFileDate()
-            if (sensorName() == thisRepoFile.substring(0, 12)) {
-                if (lastRepoFile == "" ||
-                    (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
-                ) {
-                    lastRepoFile = thisRepoFile
-                    lastRepoSize = it.fileSize().toInt()
-                    lastRepoDate = thisRepoDate
+            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14}\\.txt".toRegex().matches(thisRepoFile)) {
+                val thisRepoDate = thisRepoFile.parseFileDate()
+                if (sensorName() == thisRepoFile.substring(0, 12)) {
+                    if (lastRepoFile == "" ||
+                        (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
+                    ) {
+                        lastRepoFile = thisRepoFile
+                        lastRepoSize = it.fileSize().toInt()
+                        lastRepoDate = thisRepoDate
+                    }
                 }
             }
         }
@@ -129,13 +132,19 @@ class SensorInfo(
     }
 
     fun flushIfOpen() {
-        if (this::fileHandle.isInitialized)
-            fileHandle.flush()
+        if (this::fileHandle.isInitialized) {
+            try {
+                fileHandle.flush()
+            } catch(e: IOException) {}
+        }
     }
 
     fun closeIfOpen() {
-        if (this::fileHandle.isInitialized)
-            fileHandle.close()
+        if (this::fileHandle.isInitialized) {
+            try {
+                fileHandle.close()
+            } catch (e: IOException) {}
+        }
     }
 }
 
