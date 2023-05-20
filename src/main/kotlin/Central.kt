@@ -44,7 +44,7 @@ fun selfToCentral() {
                     "Actim%04d".format(it)
                 })
         val reqString = CENTRAL_BIN +
-                "action=actiserver&serverId=${serverId}&ip=${myIp}&mac=${myMac}&version=${VERSION_STRING}&machine=$myMachine"
+                "action=actiserver&serverId=${serverId}"
         val data = Json.encodeToString(Self.toCentral())
         val registryText = sendHttpRequest(reqString, data)
         loadRegistry(registryText)

@@ -122,7 +122,7 @@ val myMachine = run {
     val regex = "System:\\s(\\S+\\s+\\S+\\s+\\S+)".toRegex()
     val machine = regex.find(inxi)
     if (machine != null) {
-        machine.groups[1]!!.value.replace("\\s".toRegex(), "")
+        machine.groups[1]!!.value
     } else {
         "Unknown"
     }
