@@ -88,11 +88,11 @@ fun String.runCommand(): String {
 
 val myMachine = run {
     val inxi = "/usr/bin/inxi -M -c 0".runCommand()
-    val regex = "System:(\\s[^\\s:]+)+".toRegex()
+    val regex = "System:([^:]+)".toRegex()
     val machine = regex.find(inxi)
     if (machine != null) {
-        val words = machine.groups.size
-        machine.groupValues.subList(1, words).joinToString(separator=" ")
+        val words = machine.groupValues[1].split(" ")
+        words.subList(0, words.size - 1).joinToString(separator=" ")
     } else {
         "Unknown"
     }
