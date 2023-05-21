@@ -3,7 +3,7 @@ import java.io.*
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "191"
+const val VERSION_STRING = "192"
 
 var CENTRAL_HOST = "192.168.1.9"
 var MQTT_PORT = 1883
@@ -11,6 +11,10 @@ var ACTI_PORT = 2883
 var HTTP_PORT = 80
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
+var serverId: Int = 999
+var serverAddress = "192.168.${serverId}.1"
+var serverName = "Actis%03d".format(serverId)
+var myChannel = 0
 
 const val MQTT_LOG = "Acti/Log"
 const val MQTT_TEXT = "Acti"
@@ -39,13 +43,20 @@ class Options(configFileName: String = "") {
         )
         try {
             configFile.forEachLine {
-                if (it.trim() != "") {
+                if (it.trim() != "" && it[0] != '#') {
                     val (key, value) = it.split("=").map { it.trim() }
                     when (key.lowercase()) {
-                        "central_host"  -> CENTRAL_HOST = value
-                        "repo_root"     -> REPO_ROOT = value
+                        "central_host" -> CENTRAL_HOST = value
+                        "repo_root" -> REPO_ROOT = value
                         "max_repo_size" -> MAX_REPO_SIZE = value.toInt()
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
+                        "server_id" -> {
+                            serverId = value.toInt()
+                            serverAddress = "192.168.${serverId}.1"
+                            serverName = "Actis%03d".format(serverId)
+                        }
+
+                        "channel" -> myChannel = value.toInt()
                         "options" -> for (c in value.toCharArray()) {
                             when (c) {
                                 'l' -> logging = true
@@ -75,54 +86,13 @@ fun String.runCommand(): String {
     }
 }
 
-val myMac = run {
-    val ifconfig = "/usr/sbin/ifconfig wlan0".runCommand()
-    val regex = "ether\\s+([0-9a-fA-F:]+)".toRegex()
-    val mac = regex.find(ifconfig)
-    if (mac != null) {
-        mac.groups[1]!!.value.uppercase().filterNot { it == ':' }
-    } else {
-        ""
-    }
-}
-
-val myIp = run {
-    val ifconfig = "/usr/sbin/ifconfig eth0".runCommand()
-    val regex = "inet\\s+([0-9.]+)".toRegex()
-    val ip = regex.find(ifconfig)
-    if (ip != null) {
-        ip.groups[1]!!.value
-    } else {
-        ""
-    }
-}
-
-val mySsid = BufferedReader(FileReader("/etc/hostapd/hostapd.conf"))
-    .readLines().map {it.split("=")}
-    .map { it -> it.map {it.trim()}}
-    .map {if (it[0] == "ssid") it[1] else ""}
-    .find {it != ""}
-
-val serverId: Int = mySsid?.substring(5, 8)?.toInt() ?: 0
-val serverName = "Actis%03d".format(serverId)
-
-val myChannel = run {
-    val iw = "/usr/sbin/iw wlan0 info".runCommand()
-    val regex = "channel\\s+([0-9]+)".toRegex()
-    val channel = regex.find(iw)
-    if (channel != null) {
-        channel.groups[1]!!.value.toInt()
-    } else {
-        999
-    }
-}
-
 val myMachine = run {
     val inxi = "/usr/bin/inxi -M -c 0".runCommand()
-    val regex = "System:\\s(\\S+\\s+\\S+\\s+\\S+)".toRegex()
+    val regex = "System:(\\s[^\\s:]+)+".toRegex()
     val machine = regex.find(inxi)
     if (machine != null) {
-        machine.groups[1]!!.value
+        val words = machine.groups.size
+        machine.groupValues.subList(1, words).joinToString(separator=" ")
     } else {
         "Unknown"
     }

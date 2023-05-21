@@ -102,7 +102,7 @@ class SensorInfo(
             fileName = lastRepoFile
             fileDate = lastRepoDate
             fileSize = lastRepoSize
-            fileHandle = BufferedWriter(FileWriter(lastRepoFile.fullName(), true), 4096)
+            fileHandle = BufferedWriter(FileWriter(lastRepoFile.fullName(), true), 16384)
             mqttLog("Continue data file $lastRepoFile")
         }
     }
@@ -111,12 +111,12 @@ class SensorInfo(
         fileName = sensorName() + "_" + atDateTime.actiFormat() + ".txt"
         fileDate = atDateTime
         fileSize = 0
-        fileHandle = BufferedWriter(FileWriter(fileName.fullName(), false), 4096)
+        fileHandle = BufferedWriter(FileWriter(fileName.fullName(), false), 16384)
         mqttLog("Start data file $fileName")
     }
 
     fun writeData(record: Record) {
-        if (fileName == "") findDataFile(record.dateTime)
+        if (!this::fileHandle.isInitialized) findDataFile(record.dateTime)
         else if (fileSize > MAX_REPO_SIZE ||
             Duration.between(fileDate, record.dateTime) > MAX_REPO_TIME
         ) {
@@ -210,7 +210,6 @@ class Actimetre(
             try {
                 inputLen = this.channel.read(sensorBuffer)
                 while (inputLen < msgLength) {
-                    Thread.yield()
                     inputLen += this.channel.read(sensorBuffer)
                 }
             } catch (e: AsynchronousCloseException) {
@@ -316,10 +315,8 @@ class Actimetre(
 @Serializable
 class ActiserverShort(
     @Required var serverId: Int = 0,
-    @Required var mac     : String = "............",
     @Required var machine : String = "Unknown",
     @Required var version : String = "000",
-    @Required var ip      : String = "0.0.0.0",
     @Required var channel : Int = 999,
     @Serializable(with = DateTimeAsString::class)
     @Required var started : ZonedDateTime = TimeZero,
@@ -329,10 +326,8 @@ class ActiserverShort(
 ) {
     fun init(s: Actiserver) : ActiserverShort {
         serverId = s.serverId
-        mac = s.mac
         machine = s.machine
         version = s.version
-        ip = s.ip
         channel = s.channel
         started = s.started
         lastReport = s.lastReport
@@ -343,10 +338,8 @@ class ActiserverShort(
 
 class Actiserver(
     val serverId: Int = 0,
-    val mac     : String = "............",
     val machine : String = "Unknown",
     val version : String = "000",
-    val ip      : String = "0.0.0.0",
     val channel : Int = 999,
     val started : ZonedDateTime = TimeZero
 ) {

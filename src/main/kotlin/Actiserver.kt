@@ -15,15 +15,9 @@ import kotlin.system.exitProcess
 fun main(args: Array<String>) {
     if (args.count() > 1) options = Options(args[1])
 
-    var serverAddress = "192.168.${serverId}.1"
-
-    if (options.test) {
-        serverAddress = myIp
-    }
-
     println("Welcome to Actiserver $VERSION_STRING")
-    println("mySsid=${mySsid}, serverId=$serverId, serverAddress=$serverAddress")
-    println("myMac=$myMac, myIp=$myIp, myChannel=$myChannel")
+    println("serverId=$serverId, serverAddress=$serverAddress")
+    println("myChannel=$myChannel")
 
     if (serverId > 0) {
         mqttClient = MQTTClient(4, CENTRAL_HOST, MQTT_PORT, null, keepAlive = 0) {}
@@ -40,7 +34,7 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 
-    Self = Actiserver(serverId, myMac, myMachine, VERSION_STRING, myIp, myChannel, now())
+    Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, now())
     selfToCentral()
 
     val actiServer = ServerSocketChannel.open().apply {
@@ -139,7 +133,7 @@ fun mainLoop() {
         for (a in actimList) {
             a.loop(now)
         }
-        Thread.sleep(500L)
+        Thread.sleep(1000L)
     }
 }
 
