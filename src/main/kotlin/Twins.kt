@@ -148,6 +148,8 @@ class SensorInfo(
     }
 }
 
+val Frequencies = listOf(50, 100, 1, 200)
+
 @Serializable
 class ActimetreShort(
     @Required var actimId           : Int = 9999,
@@ -162,7 +164,8 @@ class ActimetreShort(
     @Required var lastSeen          : ZonedDateTime = TimeZero,
     @Serializable(with = DateTimeAsString::class)
     @Required var lastReport        : ZonedDateTime = TimeZero,
-    @Required var sensorStr         : String = ""
+    @Required var sensorStr         : String = "",
+    @Required var runningFrequency  : Int = 0
 ) {
     fun init(a: Actimetre): ActimetreShort {
         actimId = a.actimId
@@ -175,6 +178,7 @@ class ActimetreShort(
         lastSeen = a.lastSeen
         lastReport = a.lastReport
         sensorStr = a.sensorStr()
+        runningFrequency = a.runningFrequency
         return this
     }
 }
@@ -197,6 +201,7 @@ class Actimetre(
     private var msgLength = 0
     private var sensorOrder = mutableListOf<String>()
     private var bootEpoch = 0L
+    var runningFrequency = 50
 
     private fun toCentral(): ActimetreShort {
         return ActimetreShort().init(this)
@@ -225,7 +230,12 @@ class Actimetre(
 
             val sensor = sensorBuffer.array()
             val msgBootEpoch = sensor.getInt3At(0)
-            val msgMillis = sensor[3].toUByte().toInt() * 256 + sensor[4].toUByte().toInt()
+            val msgMillis = (sensor[3].toUByte().toInt() and 0x03) * 256 +
+                    sensor[4].toUByte().toInt()
+            val msgOOBD = sensor[3].toUByte().toInt() shr 2
+            val msgFrequency = msgOOBD and 0x03
+            runningFrequency = Frequencies[msgFrequency]
+
             var index = 5
             while (index < msgLength) {
                 val record = Record(sensor.sliceArray(index until (index + DATA_LENGTH)),

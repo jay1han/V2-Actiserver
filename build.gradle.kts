@@ -19,10 +19,14 @@ dependencies {
     testImplementation(kotlin("test"))
 }
 
-tasks {
-    jar {
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "ActiserverKt"
     }
+    configurations["compileClasspath"].forEach { file: File ->
+        from(zipTree(file.absoluteFile))
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 tasks.test {
