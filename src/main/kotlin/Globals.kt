@@ -3,7 +3,7 @@ import java.io.*
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "192"
+const val VERSION_STRING = "193"
 
 var CENTRAL_HOST = "192.168.1.9"
 var MQTT_PORT = 1883
