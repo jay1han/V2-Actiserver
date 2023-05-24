@@ -15,8 +15,8 @@ import kotlin.system.exitProcess
 fun main(args: Array<String>) {
     if (args.count() > 1) options = Options(args[1])
 
-    println("Welcome to Actiserver v$VERSION_STRING")
-    println("$serverName at $serverAddress, channel $myChannel. $myMachine")
+    println("Actiserver v$VERSION_STRING on $myMachine")
+    println("$serverName at $myIp device $wlan on channel $myChannel as $serverAddress")
     println("Acticentral is $CENTRAL_HOST")
 
     if (serverId > 0) {
@@ -34,7 +34,7 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 
-    Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, now())
+    Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, myIp, now())
     selfToCentral()
 
     val actiServer = ServerSocketChannel.open().apply {

@@ -83,28 +83,44 @@ val myMachine = run {
     }
 }
 
+val ifconfig = "/usr/sbin/ifconfig -s".runCommand()
+
 val wlan:String = run {
-    val ifconfig = "/usr/sbin/ifconfig -s".runCommand()
-    val regex = "(wl\\S+)".toRegex()
+    val regex = "\\n(w\\S+)".toRegex()
     val ifMatch = regex.find(ifconfig)
     if (ifMatch != null) ifMatch.groupValues[1]
     else ""
 }
+val iw_wlan = "/usr/sbin/iw dev $wlan info".runCommand()
 
-val iw = "/usr/sbin/iw dev $wlan info".runCommand()
+val eth:String = run {
+    val regex = "\\n(e\\S+)".toRegex()
+    val ifMatch = regex.find(ifconfig)
+    if (ifMatch != null) ifMatch.groupValues[1]
+    else ""
+}
+val iw_eth = "/usr/sbin/iw dev $eth info".runCommand()
 
-val serverId: Int = "Actis([0-9]{3})".toRegex().find(iw)?.groupValues?.get(1)?.toInt() ?: 999
+val myChannel: Int = "channel\\s+([0-9])+".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?: 0
+val serverId: Int = "Actis([0-9]{3})".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?: 999
 val serverName = "Actis$serverId"
-
-val myChannel: Int = "channel\\s+([0-9])+".toRegex().find(iw)?.groupValues?.get(1)?.toInt() ?: 0
 
 val serverAddress: String = run {
     if (wlan == "") "192.168.${serverId}.1"
-    val config = "/user/sbin/ifconfig $wlan".runCommand()
+    val config = "/usr/sbin/ifconfig $wlan".runCommand()
     val regex = "inet\\s+([0-9.]+)".toRegex()
     val ipMatch = regex.find(config)
     if (ipMatch != null) ipMatch.groupValues[1]
     else "192.168.${serverId}.1"
+}
+
+val myIp: String = run {
+    if (eth == "") ""
+    val config = "/usr/sbin/ifconfig $eth".runCommand()
+    val regex = "inet\\s+([0-9.]+)".toRegex()
+    val ipMatch = regex.find(config)
+    if (ipMatch != null) ipMatch.groupValues[1]
+    else ""
 }
 
 lateinit var Self: Actiserver

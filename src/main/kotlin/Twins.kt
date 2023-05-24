@@ -327,7 +327,8 @@ class ActiserverShort(
     @Required var serverId: Int = 0,
     @Required var machine : String = "Unknown",
     @Required var version : String = "000",
-    @Required var channel : Int = 999,
+    @Required var channel : Int = 0,
+    @Required var ip: String = "0.0.0.0",
     @Serializable(with = DateTimeAsString::class)
     @Required var started : ZonedDateTime = TimeZero,
     @Serializable(with = DateTimeAsString::class)
@@ -339,6 +340,7 @@ class ActiserverShort(
         machine = s.machine
         version = s.version
         channel = s.channel
+        ip = s.ip
         started = s.started
         lastReport = s.lastReport
         actimetreList = s.actimetreList.keys.toSet()
@@ -350,8 +352,9 @@ class Actiserver(
     val serverId: Int = 0,
     val machine : String = "Unknown",
     val version : String = "000",
-    val channel : Int = 999,
-    val started : ZonedDateTime = TimeZero
+    val channel : Int = 0,
+    val ip      : String = "0.0.0.0",
+    val started : ZonedDateTime = TimeZero,
 ) {
     var lastReport = TimeZero
     var actimetreList = mutableMapOf<Int, Actimetre>()
