@@ -24,7 +24,7 @@ import kotlin.io.path.forEachDirectoryEntry
 class Record(buffer: ByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Int) {
     private val diffMillis = buffer[0].toUByte().toInt() * 256 + buffer[1].toUByte().toInt()
     private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
-    val dateTime = ZonedDateTime.ofInstant(
+    val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
         Instant.ofEpochSecond((msgBootEpoch + bootEpoch + adjEpoch),
             ((msgMillis + diffMillis) % 1000).toLong() * 1_000_000L),
         ZoneId.of("Z"))
@@ -211,7 +211,7 @@ class Actimetre(
         this.channel = channel
         while (true) {
             val sensorBuffer = ByteBuffer.allocate(msgLength)
-            var inputLen = 0
+            var inputLen: Int
             try {
                 inputLen = this.channel.read(sensorBuffer)
                 while (inputLen < msgLength) {

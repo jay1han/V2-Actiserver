@@ -3,18 +3,14 @@ import java.io.*
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "193"
+const val VERSION_STRING = "194"
 
-var CENTRAL_HOST = "192.168.1.9"
+var CENTRAL_HOST = "localhost"
 var MQTT_PORT = 1883
 var ACTI_PORT = 2883
 var HTTP_PORT = 80
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
-var serverId: Int = 999
-var serverAddress = "192.168.${serverId}.1"
-var serverName = "Actis%03d".format(serverId)
-var myChannel = 0
 
 const val MQTT_LOG = "Acti/Log"
 const val MQTT_TEXT = "Acti"
@@ -29,9 +25,7 @@ var options = Options("")
 
 class Options(configFileName: String = "") {
     var logging: Boolean = false
-    var kill: Boolean = false
     var test: Boolean = false
-    var daemon: Boolean = false
     var echo: Boolean = false
     var fullText: Boolean = false
 
@@ -48,21 +42,12 @@ class Options(configFileName: String = "") {
                     when (key.lowercase()) {
                         "central_host" -> CENTRAL_HOST = value
                         "repo_root" -> REPO_ROOT = value
-                        "max_repo_size" -> MAX_REPO_SIZE = value.toInt()
+                        "max_repo_size" -> MAX_REPO_SIZE = value.replace("_", "").toInt()
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
-                        "server_id" -> {
-                            serverId = value.toInt()
-                            serverAddress = "192.168.${serverId}.1"
-                            serverName = "Actis%03d".format(serverId)
-                        }
-
-                        "channel" -> myChannel = value.toInt()
                         "options" -> for (c in value.toCharArray()) {
                             when (c) {
                                 'l' -> logging = true
-                                'k' -> kill = true
                                 't' -> test = true
-                                'd' -> daemon = true
                                 'e' -> echo = true
                                 'f' -> fullText = true
                                 else -> {}
@@ -88,7 +73,7 @@ fun String.runCommand(): String {
 
 val myMachine = run {
     val inxi = "/usr/bin/inxi -M -c 0".runCommand()
-    val regex = "System:([^:]+)".toRegex()
+    val regex = "System:\\s+([^:]+)".toRegex()
     val machine = regex.find(inxi)
     if (machine != null) {
         val words = machine.groupValues[1].split(" ")
@@ -96,6 +81,30 @@ val myMachine = run {
     } else {
         "Unknown"
     }
+}
+
+val wlan:String = run {
+    val ifconfig = "/usr/sbin/ifconfig -s".runCommand()
+    val regex = "(wl\\S+)".toRegex()
+    val ifMatch = regex.find(ifconfig)
+    if (ifMatch != null) ifMatch.groupValues[1]
+    else ""
+}
+
+val iw = "/usr/sbin/iw dev $wlan info".runCommand()
+
+val serverId: Int = "Actis([0-9]{3})".toRegex().find(iw)?.groupValues?.get(1)?.toInt() ?: 999
+val serverName = "Actis$serverId"
+
+val myChannel: Int = "channel\\s+([0-9])+".toRegex().find(iw)?.groupValues?.get(1)?.toInt() ?: 0
+
+val serverAddress: String = run {
+    if (wlan == "") "192.168.${serverId}.1"
+    val config = "/user/sbin/ifconfig $wlan".runCommand()
+    val regex = "inet\\s+([0-9.]+)".toRegex()
+    val ipMatch = regex.find(config)
+    if (ipMatch != null) ipMatch.groupValues[1]
+    else "192.168.${serverId}.1"
 }
 
 lateinit var Self: Actiserver

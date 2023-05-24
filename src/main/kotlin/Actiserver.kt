@@ -15,9 +15,9 @@ import kotlin.system.exitProcess
 fun main(args: Array<String>) {
     if (args.count() > 1) options = Options(args[1])
 
-    println("Welcome to Actiserver $VERSION_STRING")
-    println("serverId=$serverId, serverAddress=$serverAddress")
-    println("myChannel=$myChannel")
+    println("Welcome to Actiserver v$VERSION_STRING")
+    println("$serverName at $serverAddress, channel $myChannel. $myMachine")
+    println("Acticentral is $CENTRAL_HOST")
 
     if (serverId > 0) {
         mqttClient = MQTTClient(4, CENTRAL_HOST, MQTT_PORT, null, keepAlive = 0) {}
@@ -43,8 +43,8 @@ fun main(args: Array<String>) {
     }
 
     Thread.currentThread().priority = 6
-    thread(start=true, isDaemon = true, name="reporting", priority=2) {reportingLoop()}
-    thread(start=true, isDaemon = true, name="loop", priority=9) {mainLoop()}
+    thread(start=true, name="reporting", priority=2) {reportingLoop()}
+    thread(start=true, name="loop", priority=9) {mainLoop()}
 
     var clientCount = 0
     while (true) {
