@@ -3,7 +3,7 @@ import java.io.*
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "194"
+const val VERSION_STRING = "196"
 
 var CENTRAL_HOST = "localhost"
 var MQTT_PORT = 1883
@@ -99,19 +99,18 @@ val eth:String = run {
     if (ifMatch != null) ifMatch.groupValues[1]
     else ""
 }
-val iw_eth = "/usr/sbin/iw dev $eth info".runCommand()
 
 val myChannel: Int = "channel\\s+([0-9])+".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?: 0
-val serverId: Int = "Actis([0-9]{3})".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?: 999
-val serverName = "Actis$serverId"
+val serverId: Int = "Actis([0-9]{3})".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?: 0
+val serverName = "Actis%03d".format(serverId)
 
 val serverAddress: String = run {
-    if (wlan == "") "192.168.${serverId}.1"
+    if (wlan == "") "192.168.4.1"
     val config = "/usr/sbin/ifconfig $wlan".runCommand()
     val regex = "inet\\s+([0-9.]+)".toRegex()
     val ipMatch = regex.find(config)
     if (ipMatch != null) ipMatch.groupValues[1]
-    else "192.168.${serverId}.1"
+    else "192.168.4.1"
 }
 
 val myIp: String = run {
