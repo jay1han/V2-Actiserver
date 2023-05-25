@@ -148,7 +148,7 @@ class SensorInfo(
     }
 }
 
-val Frequencies = listOf(50, 100, 1, 200)
+val Frequencies = listOf(50, 100, 1, 250)
 
 @Serializable
 class ActimetreShort(
