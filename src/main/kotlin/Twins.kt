@@ -233,7 +233,7 @@ class Actimetre(
             val msgMillis = (sensor[3].toUByte().toInt() and 0x03) * 256 +
                     sensor[4].toUByte().toInt()
             val msgOOBD = sensor[3].toUByte().toInt() shr 2
-            val msgFrequency = msgOOBD and 0x03
+            val msgFrequency = msgOOBD and 0x07
             runningFrequency = Frequencies[msgFrequency]
 
             var index = 5
