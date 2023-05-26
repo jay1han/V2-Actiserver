@@ -6,9 +6,10 @@ import java.util.concurrent.TimeUnit
 const val VERSION_STRING = "196"
 
 var CENTRAL_HOST = "localhost"
+var HTTP_PORT = 80
+var MQTT_HOST = "localhost"
 var MQTT_PORT = 1883
 var ACTI_PORT = 2883
-var HTTP_PORT = 80
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 
@@ -40,7 +41,11 @@ class Options(configFileName: String = "") {
                 if (it.trim() != "" && it[0] != '#') {
                     val (key, value) = it.split("=").map { it.trim() }
                     when (key.lowercase()) {
-                        "central_host" -> CENTRAL_HOST = value
+                        "central_host" -> {
+                            CENTRAL_HOST = value
+                            MQTT_HOST = value
+                        }
+                        "mqtt_host" -> MQTT_HOST = value
                         "repo_root" -> REPO_ROOT = value
                         "max_repo_size" -> MAX_REPO_SIZE = value.replace("_", "").toInt()
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
