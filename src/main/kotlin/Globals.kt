@@ -3,7 +3,7 @@ import java.io.*
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "196"
+const val VERSION_STRING = "197"
 
 var CENTRAL_HOST = "localhost"
 var HTTP_PORT = 80
