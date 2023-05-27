@@ -39,7 +39,7 @@ fun selfToCentral() {
     synchronized(Self) {
         Self.lastReport = now()
         mqttLog("v${VERSION_STRING} Alive with " +
-                if (Self.actimetreList.count() == 0) "no Actimetres"
+                if (Self.actimetreList.isEmpty()) "no Actimetres"
                 else Self.actimetreList.keys.sorted().joinToString(separator = " ") {
                     "Actim%04d".format(it) +
                             "@${Self.actimetreList[it]?.runningFrequency}" +
@@ -54,13 +54,13 @@ fun selfToCentral() {
     }
 }
 
-lateinit var mqttClient: MQTTClient
 
 fun mqttLog(text: String) {
     printLog("[${now().prettyFormat()}] $text")
     if (options.logging) {
+        val mqttClient = MQTTClient(4, MQTT_HOST, MQTT_PORT, null, keepAlive = 0) {}
         try {
-            mqttClient.publish(false, Qos.AT_MOST_ONCE, "$MQTT_LOG/%03d".format(serverId),
+            mqttClient.publish(true, Qos.AT_MOST_ONCE, "$MQTT_LOG/%03d".format(serverId),
                 "${now().prettyFormat()} [$serverName] $text".toByteArray().toUByteArray())
         } catch(e: IOException) {}
     }

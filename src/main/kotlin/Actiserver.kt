@@ -1,4 +1,3 @@
-@file:OptIn(ExperimentalUnsignedTypes::class)
 
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
@@ -20,13 +19,11 @@ fun main(args: Array<String>) {
     println("Acticentral is $CENTRAL_HOST")
 
     if (serverId > 0) {
-        mqttClient = MQTTClient(4, MQTT_HOST, MQTT_PORT, null, keepAlive = 0) {}
         mqttLog("$serverName started")
 
         if (options.echo) println("Echo on")
         if (options.logging) println("Logging on")
         if (options.test) println("Test mode")
-        if (options.fullText) println("Full text")
         println("CENTRAL_HOST = $CENTRAL_HOST, HTTP_PORT = $HTTP_PORT")
         println("ACTI_PORT = $ACTI_PORT")
         println("MQTT_HOST = $MQTT_HOST, MQTT_PORT = $MQTT_PORT")

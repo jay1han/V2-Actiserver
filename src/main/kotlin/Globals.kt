@@ -13,8 +13,7 @@ var ACTI_PORT = 2883
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 
-const val MQTT_LOG = "Acti/Log"
-const val MQTT_TEXT = "Acti"
+const val MQTT_LOG = "Acti"
 var REPO_ROOT = "/media/actimetre"
 const val LOG_FILE = "/etc/actimetre/server.log"
 const val CENTRAL_BIN = "/bin/acticentral.py?"
@@ -28,7 +27,6 @@ class Options(configFileName: String = "") {
     var logging: Boolean = false
     var test: Boolean = false
     var echo: Boolean = false
-    var fullText: Boolean = false
 
     init {
         println("Loading options from '$configFileName'")
@@ -54,7 +52,6 @@ class Options(configFileName: String = "") {
                                 'l' -> logging = true
                                 't' -> test = true
                                 'e' -> echo = true
-                                'f' -> fullText = true
                                 else -> {}
                             }
                         }

@@ -4,7 +4,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import mqtt.packets.Qos
 import java.io.BufferedWriter
 import java.io.FileWriter
 import java.io.IOException
@@ -72,8 +71,6 @@ class SensorInfo(
 
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId)}
 
-    private fun actimNum(): String {return "%04d".format(actimId)}
-
     private fun findDataFile(atDateTime: ZonedDateTime) {
         var lastRepoFile = ""
         var lastRepoSize = 0
@@ -122,10 +119,6 @@ class SensorInfo(
         ) {
             fileHandle.close()
             newDataFile(record.dateTime)
-        }
-        if (options.fullText) {
-            mqttClient.publish(false, Qos.AT_MOST_ONCE, "$MQTT_TEXT/${actimNum()}/$sensorId",
-                record.textStr.toByteArray().toUByteArray())
         }
         fileHandle.append(record.textStr + "\n")
         fileSize += record.textStr.length + 1
