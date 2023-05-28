@@ -112,7 +112,7 @@ class SensorInfo(
         mqttLog("Start data file $fileName")
     }
 
-    fun writeData(record: Record) {
+    fun writeData(record: Record): Int {
         if (!this::fileHandle.isInitialized) findDataFile(record.dateTime)
         else if (fileSize > MAX_REPO_SIZE ||
             Duration.between(fileDate, record.dateTime) > MAX_REPO_TIME
@@ -122,6 +122,7 @@ class SensorInfo(
         }
         fileHandle.append(record.textStr + "\n")
         fileSize += record.textStr.length + 1
+        return record.textStr.length + 1
     }
 
     fun flushIfOpen() {
@@ -159,7 +160,8 @@ class ActimetreShort(
     @Required var lastReport        : ZonedDateTime = TimeZero,
     @Required var sensorStr         : String = "",
     @Required var frequency         : Int = 0,
-    @Required var rating            : Double = 1.0
+    @Required var rating            : Double = 1.0,
+    @Required var repoSize          : Long = 0,
 ) {
     fun init(a: Actimetre): ActimetreShort {
         actimId = a.actimId
@@ -174,6 +176,7 @@ class ActimetreShort(
         sensorStr = a.sensorStr()
         frequency = a.frequency
         rating = a.rating
+        repoSize = a.repoSize
         return this
     }
 }
@@ -201,6 +204,7 @@ class Actimetre(
     private var missingPoints  = 0
     private var totalPoints = 0
     var rating = 0.0
+    var repoSize: Long = 0
 
     private fun toCentral(): ActimetreShort {
         return ActimetreShort().init(this)
@@ -237,6 +241,10 @@ class Actimetre(
             if (lastMessage == TimeZero) {
                 totalPoints = 1
                 missingPoints = 0
+
+                Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+                    repoSize += it.fileSize()
+                }
             } else {
                 val cycles = Duration.between(lastMessage, msgDateTime)
                     .dividedBy(Duration.ofNanos(cycleNanoseconds))
@@ -261,7 +269,7 @@ class Actimetre(
                     sensorOrder[index / DATA_LENGTH], bootEpoch, msgBootEpoch, msgMillis)
                 if (!sensorList.containsKey(record.sensorId))
                     sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
-                sensorList[record.sensorId]!!.writeData(record)
+                repoSize += sensorList[record.sensorId]!!.writeData(record)
                 index += DATA_LENGTH
             }
             lastSeen = now()
