@@ -158,7 +158,8 @@ class ActimetreShort(
     @Serializable(with = DateTimeAsString::class)
     @Required var lastReport        : ZonedDateTime = TimeZero,
     @Required var sensorStr         : String = "",
-    @Required var runningFrequency  : Int = 0
+    @Required var frequency         : Int = 0,
+    @Required var rating            : Double = 1.0
 ) {
     fun init(a: Actimetre): ActimetreShort {
         actimId = a.actimId
@@ -171,7 +172,8 @@ class ActimetreShort(
         lastSeen = a.lastSeen
         lastReport = a.lastReport
         sensorStr = a.sensorStr()
-        runningFrequency = a.runningFrequency
+        frequency = a.frequency
+        rating = a.rating
         return this
     }
 }
@@ -190,11 +192,15 @@ class Actimetre(
     private var sensorList = mutableMapOf<String, SensorInfo>()
     private var nSensors = 0
     private lateinit var channel: ByteChannel
-    private var errors: Int = 0
     private var msgLength = 0
     private var sensorOrder = mutableListOf<String>()
     private var bootEpoch = 0L
-    var runningFrequency = 50
+    var frequency = 50
+    private var cycleNanoseconds = 1_000_000_000L / frequency
+    private var lastMessage = TimeZero
+    private var missingPoints  = 0
+    private var totalPoints = 0
+    var rating = 0.0
 
     private fun toCentral(): ActimetreShort {
         return ActimetreShort().init(this)
@@ -225,9 +231,29 @@ class Actimetre(
             val msgBootEpoch = sensor.getInt3At(0)
             val msgMillis = (sensor[3].toUByte().toInt() and 0x03) * 256 +
                     sensor[4].toUByte().toInt()
+            val msgDateTime = ZonedDateTime.ofInstant(
+                Instant.ofEpochSecond(msgBootEpoch + bootEpoch, msgMillis * 1_000_000L),
+                ZoneId.of("Z"))
+            if (lastMessage == TimeZero) {
+                totalPoints = 1
+                missingPoints = 0
+            } else {
+                val cycles = Duration.between(lastMessage, msgDateTime)
+                    .dividedBy(Duration.ofNanos(cycleNanoseconds))
+                    .toInt()
+                if (cycles > 1) {
+                    missingPoints += cycles - 1
+                    printLog("${actimName()} missed cycle $missingPoints / $totalPoints = ${missingPoints / totalPoints}")
+                }
+                totalPoints += cycles
+                rating = missingPoints.toDouble() / totalPoints.toDouble()
+            }
+            lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
+
             val msgOOBD = sensor[3].toUByte().toInt() shr 2
             val msgFrequency = msgOOBD and 0x07
-            runningFrequency = Frequencies[msgFrequency]
+            frequency = Frequencies[msgFrequency]
+            cycleNanoseconds = 1_000_000_000L / frequency
 
             var index = 5
             while (index < msgLength) {
@@ -271,29 +297,31 @@ class Actimetre(
     }
 
     fun loop(now: ZonedDateTime) {
+        if (lastSeen == TimeZero) return
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
             if (isDead) return
             mqttLog("Killing ${actimName()}")
             if (this::channel.isInitialized) channel.close()
-//            dies()
+            else dies()
         } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
             val reqString = CENTRAL_BIN + "action=actimetre" +
                     "&serverId=${serverId}&actimId=${actimId}"
             sendHttpRequest(reqString, Json.encodeToString(toCentral()))
-//            mqttLog("${actimName()} is alive")
             lastReport = now
-            errors = 0
             sensorList.values.map {it.flushIfOpen()}
         }
     }
 
-    fun setInfo(mac: String, boardType: String, version: String, bootTime: ZonedDateTime, lastSeen: ZonedDateTime, sensorBits: Byte) {
+    fun setInfo(mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: Byte) {
         this.mac = mac
         this.boardType = boardType
         this.version = version
         this.bootTime = bootTime
+        lastSeen = TimeZero
+        lastReport = TimeZero
+        totalPoints = 0
+        missingPoints = 0
         bootEpoch = bootTime.toEpochSecond()
-        this.lastSeen = lastSeen
         nSensors = 0
         for (port in 0..1) {
             for (address in 0..1) {
@@ -323,8 +351,6 @@ class ActiserverShort(
     @Required var channel : Int = 0,
     @Required var ip: String = "0.0.0.0",
     @Serializable(with = DateTimeAsString::class)
-    @Required var started : ZonedDateTime = TimeZero,
-    @Serializable(with = DateTimeAsString::class)
     @Required var lastReport : ZonedDateTime = TimeZero,
     @Required var actimetreList : Set<Int> = setOf(),
 ) {
@@ -334,7 +360,6 @@ class ActiserverShort(
         version = s.version
         channel = s.channel
         ip = s.ip
-        started = s.started
         lastReport = s.lastReport
         actimetreList = s.actimetreList.keys.toSet()
         return this
@@ -347,7 +372,6 @@ class Actiserver(
     val version : String = "000",
     val channel : Int = 0,
     val ip      : String = "0.0.0.0",
-    val started : ZonedDateTime = TimeZero,
 ) {
     var lastReport = TimeZero
     var actimetreList = mutableMapOf<Int, Actimetre>()
@@ -363,7 +387,7 @@ class Actiserver(
                 a = Actimetre(actimId, serverId = serverId)
                 actimetreList[actimId] = a
             }
-            a.setInfo(mac, boardType, version, bootTime = bootTime, lastSeen = bootTime, sensorBits = sensorBits)
+            a.setInfo(mac, boardType, version, bootTime = bootTime, sensorBits = sensorBits)
             return a
         }
     }

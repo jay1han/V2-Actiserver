@@ -42,7 +42,7 @@ fun selfToCentral() {
                 if (Self.actimetreList.isEmpty()) "no Actimetres"
                 else Self.actimetreList.keys.sorted().joinToString(separator = " ") {
                     "Actim%04d".format(it) +
-                            "@${Self.actimetreList[it]?.runningFrequency}" +
+                            "@${Self.actimetreList[it]?.frequency}" +
                             "(${Self.actimetreList[it]?.sensorStr()})"
                 })
         val reqString = CENTRAL_BIN +
@@ -54,14 +54,18 @@ fun selfToCentral() {
     }
 }
 
+var mqttClient = MQTTClient(4, MQTT_HOST, MQTT_PORT, null, keepAlive = 0) {}
 
 fun mqttLog(text: String) {
     printLog("[${now().prettyFormat()}] $text")
     if (options.logging) {
-        val mqttClient = MQTTClient(4, MQTT_HOST, MQTT_PORT, null, keepAlive = 0) {}
         try {
-            mqttClient.publish(true, Qos.AT_MOST_ONCE, "$MQTT_LOG/%03d".format(serverId),
-                "${now().prettyFormat()} [$serverName] $text".toByteArray().toUByteArray())
-        } catch(e: IOException) {}
+            mqttClient.publish(
+                    true, Qos.AT_MOST_ONCE, "$MQTT_LOG/%03d".format(serverId),
+                    "${now().prettyFormat()} [$serverName] $text".toByteArray().toUByteArray()
+                )
+        } catch (e: IOException) {
+            mqttClient = MQTTClient(4, MQTT_HOST, MQTT_PORT, null, keepAlive = 0) {}
+        }
     }
 }

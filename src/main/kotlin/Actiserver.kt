@@ -7,7 +7,6 @@ import java.nio.channels.ServerSocketChannel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.concurrent.fixedRateTimer
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
@@ -16,24 +15,20 @@ fun main(args: Array<String>) {
 
     println("Actiserver v$VERSION_STRING on $myMachine")
     println("$serverName at $myIp device $wlan on channel $myChannel as $serverAddress")
-    println("Acticentral is $CENTRAL_HOST")
 
     if (serverId > 0) {
         mqttLog("$serverName started")
 
         if (options.echo) println("Echo on")
-        if (options.logging) println("Logging on")
+        if (!options.logging) println("Logging off")
         if (options.test) println("Test mode")
-        println("CENTRAL_HOST = $CENTRAL_HOST, HTTP_PORT = $HTTP_PORT")
-        println("ACTI_PORT = $ACTI_PORT")
-        println("MQTT_HOST = $MQTT_HOST, MQTT_PORT = $MQTT_PORT")
-        println("MAX_REPO_SIZE = $MAX_REPO_SIZE; MAX_REPO_TIME = $MAX_REPO_TIME")
+        println("REPO_ROOT = $REPO_ROOT. MAX_REPO_SIZE = $MAX_REPO_SIZE, MAX_REPO_TIME = $MAX_REPO_TIME")
     } else {
         println("Unable to discover serverId, quitting")
         exitProcess(1)
     }
 
-    Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, myIp, now())
+    Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, myIp)
     selfToCentral()
 
     val actiServer = ServerSocketChannel.open().apply {
@@ -42,8 +37,7 @@ fun main(args: Array<String>) {
     }
 
     Thread.currentThread().priority = 6
-    thread(start=true, name="reporting", priority=2) {reportingLoop()}
-    thread(start=true, name="loop", priority=9) {mainLoop()}
+    thread(start=true, name="loop", priority=8) {mainLoop()}
 
     var clientCount = 0
     while (true) {
@@ -126,20 +120,17 @@ fun newClient (channel: ByteChannel) {
 
 fun mainLoop() {
     printLog("Main Loop")
+    var nextReport = now().plusSeconds(ACTIS_CHECK_SECS)
     while (true) {
         val now = now()
         val actimList = Self.actimetreList.values.toList()
         for (a in actimList) {
             a.loop(now)
         }
+        if (now().isAfter(nextReport)) {
+            selfToCentral()
+            nextReport = now().plusSeconds(ACTIS_CHECK_SECS)
+        }
         Thread.sleep(1000L)
-    }
-}
-
-fun reportingLoop() {
-    printLog("Reporting Loop")
-    fixedRateTimer("Reporting", true, ACTIS_CHECK_MILLIS, ACTIS_CHECK_MILLIS) {
-        selfToCentral()
-        Thread.yield()
     }
 }
