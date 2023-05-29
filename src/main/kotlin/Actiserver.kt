@@ -23,6 +23,7 @@ fun main(args: Array<String>) {
         if (!options.logging) println("Logging off")
         if (options.test) println("Test mode")
         println("REPO_ROOT = $REPO_ROOT. MAX_REPO_SIZE = $MAX_REPO_SIZE, MAX_REPO_TIME = $MAX_REPO_TIME")
+        println("CENTRAL_HOST = $CENTRAL_HOST. MQTT_HOST = $MQTT_HOST")
     } else {
         println("Unable to discover serverId, quitting")
         exitProcess(1)
@@ -89,10 +90,14 @@ fun newClient (channel: ByteChannel) {
         val reqString = CENTRAL_BIN +
                 "action=actimetre-new&mac=${mac}&boardType=${boardType}&version=${version}&serverId=${serverId}&bootTime=${bootTime.actiFormat()}"
         val responseString = sendHttpRequest(reqString, "")
-        newActimId = responseString.trim().toInt()
-        Registry[mac] = newActimId
-        printLog("New Actim%04d".format(newActimId))
-
+        if (responseString != "") {
+            newActimId = responseString.trim().toInt()
+            Registry[mac] = newActimId
+            printLog("New Actim%04d".format(newActimId))
+        } else {
+            printLog("Received error from Acticentral, denying Actimetre")
+            return
+        }
     } else {
         printLog("Known Actim%04d".format(actimId))
     }

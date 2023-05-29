@@ -29,8 +29,8 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
         val reader = BufferedReader(InputStreamReader(input))
         val responseText = reader.readText()
         input.close()
-        return responseText
-    } else "Error $responseCode from Acticentral"
+        responseText
+    } else ""
     printLog("Response=$response")
     return response
 }
@@ -49,7 +49,7 @@ fun selfToCentral() {
                 "action=actiserver&serverId=${serverId}"
         val data = Json.encodeToString(Self.toCentral())
         val registryText = sendHttpRequest(reqString, data)
-        loadRegistry(registryText)
+        if (registryText != "") loadRegistry(registryText)
         printLog("Registry: " + Registry.toString())
     }
 }
