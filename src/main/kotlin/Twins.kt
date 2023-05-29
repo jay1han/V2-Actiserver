@@ -251,7 +251,7 @@ class Actimetre(
                     .toInt()
                 if (cycles > 1) {
                     missingPoints += cycles - 1
-                    printLog("${actimName()} missed cycle $missingPoints / $totalPoints = ${missingPoints / totalPoints}")
+                    printLog("${actimName()} missed cycle $missingPoints / $totalPoints = ${missingPoints.toDouble() / totalPoints}")
                 }
                 totalPoints += cycles
                 rating = missingPoints.toDouble() / totalPoints.toDouble()
