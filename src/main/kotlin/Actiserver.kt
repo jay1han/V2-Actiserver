@@ -38,7 +38,7 @@ fun main(args: Array<String>) {
     }
 
     Thread.currentThread().priority = 6
-    thread(start=true, name="loop", priority=8) {mainLoop()}
+    thread(start=true, name="loop", priority=8, isDaemon = true) {mainLoop()}
 
     var clientCount = 0
     while (true) {

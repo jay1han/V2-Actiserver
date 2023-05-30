@@ -82,10 +82,10 @@ val myMachine = run {
     }
 }
 
-val ifconfig = "/usr/sbin/ifconfig -s".runCommand()
+val ifconfig = "/usr/sbin/ifconfig -a".runCommand()
 
 val wlan:String = run {
-    val regex = "\\n(w\\S+)".toRegex()
+    val regex = "^(w[^:]+)".toRegex(RegexOption.MULTILINE)
     val ifMatch = regex.find(ifconfig)
     if (ifMatch != null) ifMatch.groupValues[1]
     else ""
@@ -93,13 +93,15 @@ val wlan:String = run {
 val iw_wlan = "/usr/sbin/iw dev $wlan info".runCommand()
 
 val eth:String = run {
-    val regex = "\\n(e\\S+)".toRegex()
+    val regex = "^(e[^:]+)".toRegex(RegexOption.MULTILINE)
     val ifMatch = regex.find(ifconfig)
     if (ifMatch != null) ifMatch.groupValues[1]
     else ""
 }
 
-val myChannel: Int = "channel\\s+([0-9])+".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?: 0
+val myChannel: Int = "channel\\s+([0-9])+".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?:
+        "Current Frequency:.+Channel\\s+([0-9]+)".toRegex()
+            .find("/usr/sbin/iwlist $wlan channel".runCommand())?.groupValues?.get(1)?.toInt() ?: 0
 val serverId: Int = "Actis([0-9]{3})".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?: 0
 val serverName = "Actis%03d".format(serverId)
 

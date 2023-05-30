@@ -31,7 +31,7 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
         input.close()
         responseText
     } else ""
-    printLog("Response=$response")
+    printLog("Response=${response.trim()}")
     return response
 }
 
@@ -49,8 +49,10 @@ fun selfToCentral() {
                 "action=actiserver&serverId=${serverId}"
         val data = Json.encodeToString(Self.toCentral())
         val registryText = sendHttpRequest(reqString, data)
-        if (registryText != "") loadRegistry(registryText)
-        printLog("Registry: " + Registry.toString())
+        if (registryText != "") {
+            loadRegistry(registryText)
+            printLog("Registry: " + Registry.toString())
+        }
     }
 }
 
@@ -65,7 +67,9 @@ fun mqttLog(text: String) {
                     "${now().prettyFormat()} [$serverName] $text".toByteArray().toUByteArray()
                 )
         } catch (e: IOException) {
-            mqttClient = MQTTClient(4, MQTT_HOST, MQTT_PORT, null, keepAlive = 0) {}
+            try {
+                mqttClient = MQTTClient(4, MQTT_HOST, MQTT_PORT, null, keepAlive = 0) {}
+            } catch (e: IOException) {}
         }
     }
 }
