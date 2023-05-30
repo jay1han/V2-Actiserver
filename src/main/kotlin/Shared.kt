@@ -16,7 +16,7 @@ import java.time.format.DateTimeFormatter
 var Registry = mutableMapOf<String, Int>()
 
 fun loadRegistry(registryText: String) {
-    Registry = Json.decodeFromString<MutableMap<String,Int>>(registryText)
+    Registry = Json.decodeFromString<MutableMap<String, Int>>(registryText)
 }
 
 fun String.fullName(): String {return "$REPO_ROOT/$this"}

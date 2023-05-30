@@ -3,7 +3,7 @@ import java.io.*
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "198"
+const val VERSION_STRING = "199"
 
 var CENTRAL_HOST = "api.actimetre.fr"
 var HTTP_PORT = 80
