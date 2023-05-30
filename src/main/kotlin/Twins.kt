@@ -5,6 +5,7 @@ import kotlinx.serialization.Transient
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.BufferedWriter
+import java.io.File
 import java.io.FileWriter
 import java.io.IOException
 import java.net.SocketException
@@ -99,7 +100,9 @@ class SensorInfo(
             fileName = lastRepoFile
             fileDate = lastRepoDate
             fileSize = lastRepoSize
-            fileHandle = BufferedWriter(FileWriter(lastRepoFile.fullName(), true), 16384)
+            val file = File(lastRepoFile.fullName())
+            file.setWritable(true, false)
+            fileHandle = BufferedWriter(FileWriter(file, true), 16384)
             mqttLog("Continue data file $lastRepoFile")
         }
     }
@@ -108,7 +111,9 @@ class SensorInfo(
         fileName = sensorName() + "_" + atDateTime.actiFormat() + ".txt"
         fileDate = atDateTime
         fileSize = 0
-        fileHandle = BufferedWriter(FileWriter(fileName.fullName(), false), 16384)
+        val file = File(fileName.fullName())
+        file.setWritable(true, false)
+        fileHandle = BufferedWriter(FileWriter(file), 16384)
         mqttLog("Start data file $fileName")
     }
 
