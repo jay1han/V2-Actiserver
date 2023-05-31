@@ -5,9 +5,9 @@ import java.util.concurrent.TimeUnit
 
 const val VERSION_STRING = "200"
 
-var CENTRAL_HOST = "api.actimetre.fr"
+var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
-var MQTT_HOST = "api.actimetre.fr"
+var MQTT_HOST = "actimetre.fr"
 var MQTT_PORT = 1883
 var ACTI_PORT = 2883
 var MAX_REPO_SIZE = 1_000_000_000
