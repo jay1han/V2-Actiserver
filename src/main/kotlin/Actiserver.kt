@@ -1,4 +1,5 @@
 
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.ByteChannel
@@ -8,6 +9,9 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.concurrent.thread
+import kotlin.io.path.Path
+import kotlin.io.path.fileSize
+import kotlin.io.path.forEachDirectoryEntry
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
@@ -74,26 +78,47 @@ fun newClient (channel: ByteChannel) {
     }
 
     val message = messageBuffer.array()
-    val boardType = (message.slice(0..2).map {it.toUByte().toInt().toChar()}).joinToString(separator="")
-    val mac = (message.slice(3..8).map {"%02X".format(it.toUByte().toInt())}).joinToString(separator="")
-    val sensorBits = message[9]
-    val version = message.slice(10..12).joinToString(separator="") {"%c".format(it)}
+    val boardType = (message.slice(0..2)
+        .map {it.toUByte().toInt().toChar()}).joinToString(separator="")
+    val mac = (message.slice(3..8)
+        .map {"%02X".format(it.toUByte().toInt())}).joinToString(separator="")
+    val sensorBits = message[9].toUByte()
+    val version = message.slice(10..12)
+        .joinToString(separator="") {"%c".format(it)}
     val epochTime = now().toEpochSecond() + 1
     val bootTime = ZonedDateTime.ofInstant(
         Instant.ofEpochSecond(epochTime, 0),
         ZoneId.of("Z"))
-    printLog("Actimetre MAC=$mac type $boardType version $version sensors %02X booted at ${bootTime.prettyFormat()}".format(sensorBits))
+    printLog("Actimetre MAC=$mac type $boardType version $version sensors " +
+            sensorBits.parseSensorBits() +
+            " booted at ${bootTime.prettyFormat()}")
 
     val actimId = Registry[mac] ?: 0
     var newActimId = actimId
     if (actimId == 0) {
         val reqString = CENTRAL_BIN +
-                "action=actimetre-new&mac=${mac}&boardType=${boardType}&version=${version}&serverId=${serverId}&bootTime=${bootTime.actiFormat()}"
-        val responseString = sendHttpRequest(reqString, "")
-        if (responseString != "") {
+                "action=actimetre-new&mac=${mac}&boardType=${boardType}" +
+                "&version=${version}&serverId=${serverId}&bootTime=${bootTime.actiFormat()}"
+        val response = sendHttpRequest(reqString, "")
+        if (response != "") {
+            val responseString = response.trim()
             newActimId = responseString.trim().toInt()
             Registry[mac] = newActimId
-            printLog("New Actim%04d".format(newActimId))
+
+            val isNew = if (responseString[0] == '+') {
+                var fileNums = 0
+                var fileSize = 0L
+                try {
+                    Path(REPO_ROOT).forEachDirectoryEntry("Actim%04d*".format(newActimId)) {
+                        fileNums += 1
+                        fileSize += it.fileSize()
+                        it.toFile().delete()
+                    }
+                    mqttLog("Removed $fileNums files ($fileSize bytes) of old Actim%04d".format(newActimId))
+                } catch(e:IOException) {}
+                " CLEAN"
+            } else ""
+            mqttLog("New Actim%04d for MAC=$mac".format(newActimId) + isNew)
         } else {
             printLog("Received error from Acticentral, denying Actimetre")
             return
@@ -103,7 +128,9 @@ fun newClient (channel: ByteChannel) {
     }
 
     val a = Self.updateActimetre(newActimId, mac, boardType, version, bootTime, sensorBits)
-    mqttLog("${a.actimName()} MAC=$mac type $boardType version $version sensors %02X booted at ${bootTime.prettyFormat()}".format(sensorBits))
+    mqttLog("${a.actimName()} type $boardType version $version sensors " +
+            sensorBits.parseSensorBits() +
+            " booted at ${bootTime.prettyFormat()}")
     selfToCentral()
 
     val outputBuffer = ByteBuffer.allocate(6)

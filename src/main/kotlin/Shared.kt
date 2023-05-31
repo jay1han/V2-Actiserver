@@ -60,3 +60,20 @@ fun ByteArray.getInt3At(index: Int): Long {
             (this[index + 1].toUByte().toLong() shl 8) or
             this[index + 2].toUByte().toLong()
 }
+
+fun UByte.parseSensorBits(): String {
+    var sensorStr = ""
+    for (port in 0..1) {
+        var portStr = "%d".format(port + 1)
+        for (address in 0..1) {
+            val bitMask = 1 shl (port * 4 + address)
+            if ((this.toInt() and bitMask) != 0) {
+                portStr += "%c".format('A' + address)
+            }
+        }
+        if (portStr.length > 1) {
+            sensorStr += portStr
+        }
+    }
+    return sensorStr
+}

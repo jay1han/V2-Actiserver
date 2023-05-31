@@ -325,7 +325,7 @@ class Actimetre(
         }
     }
 
-    fun setInfo(mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: Byte) {
+    fun setInfo(mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: UByte) {
         this.mac = mac
         this.boardType = boardType
         this.version = version
@@ -393,7 +393,7 @@ class Actiserver(
         return ActiserverShort().init(this)
     }
 
-    fun updateActimetre(actimId: Int, mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: Byte): Actimetre {
+    fun updateActimetre(actimId: Int, mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: UByte): Actimetre {
         synchronized(this) {
             var a = actimetreList[actimId]
             if (a == null) {
