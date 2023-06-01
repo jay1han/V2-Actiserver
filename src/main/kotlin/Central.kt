@@ -13,26 +13,31 @@ import java.net.URL
 fun sendHttpRequest(reqString: String, data: String = ""): String {
     printLog(reqString + if (data != "") ", data=$data" else "")
     val centralURL = URL("HTTP", CENTRAL_HOST, HTTP_PORT, reqString)
-    val connection = centralURL.openConnection() as HttpURLConnection
-    connection.doInput = true
-    if (data != "") {
-        connection.requestMethod = "POST"
-        connection.doOutput = true
-        connection.setRequestProperty("Content-Length", data.length.toString())
-        DataOutputStream(connection.outputStream).use {it.writeBytes(data)}
-    } else {
-        connection.requestMethod = "GET"
+    try {
+        val connection = centralURL.openConnection() as HttpURLConnection
+        connection.doInput = true
+        if (data != "") {
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Length", data.length.toString())
+            DataOutputStream(connection.outputStream).use { it.writeBytes(data) }
+        } else {
+            connection.requestMethod = "GET"
+        }
+        val responseCode = connection.responseCode
+        val response = if (responseCode == 200) {
+            val input = connection.inputStream
+            val reader = BufferedReader(InputStreamReader(input))
+            val responseText = reader.readText()
+            input.close()
+            responseText
+        } else ""
+        printLog("Response=${response.trim()}")
+        return response
+    } catch(e:IOException) {
+        printLog("IOException: couldn't connect")
     }
-    val responseCode = connection.responseCode
-    val response = if (responseCode == 200) {
-        val input = connection.inputStream
-        val reader = BufferedReader(InputStreamReader(input))
-        val responseText = reader.readText()
-        input.close()
-        responseText
-    } else ""
-    printLog("Response=${response.trim()}")
-    return response
+    return ""
 }
 
 fun selfToCentral() {
