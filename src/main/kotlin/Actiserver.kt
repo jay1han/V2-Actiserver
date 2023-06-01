@@ -65,7 +65,7 @@ fun newClient (channel: ByteChannel) {
     try {
         inputLen = channel.read(messageBuffer)
         printLog("Init: read $inputLen")
-    } catch (e: java.io.IOException) {
+    } catch (e: IOException) {
         printLog("IOException")
         return
     } catch (e: ClosedChannelException) {

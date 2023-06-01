@@ -41,9 +41,9 @@ fun selfToCentral() {
         mqttLog("v${VERSION_STRING} Alive with " +
                 if (Self.actimetreList.isEmpty()) "no Actimetres"
                 else Self.actimetreList.keys.sorted().joinToString(separator = " ") {
-                    "Actim%04d".format(it) +
-                            "@${Self.actimetreList[it]?.frequency}" +
-                            "(${Self.actimetreList[it]?.sensorStr()})"
+                    "Actim%04d".format(it) + Self.actimetreList[it]!!.apply {
+                        "@${this.frequency}" + "(${this.sensorStr()})" + "%.3f%%".format(this.rating)
+                    }
                 })
         val reqString = CENTRAL_BIN +
                 "action=actiserver&serverId=${serverId}"

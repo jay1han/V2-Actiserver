@@ -3,7 +3,7 @@ import java.io.*
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "200"
+const val VERSION_STRING = "202"
 
 var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
@@ -17,8 +17,9 @@ const val MQTT_LOG = "Acti"
 var REPO_ROOT = "/media/actimetre"
 const val LOG_FILE = "/etc/actimetre/server.log"
 const val CENTRAL_BIN = "/bin/acticentral.py?"
-val ACTIM_REPORT_TIME: Duration = Duration.ofSeconds(5)
-val ACTIM_DEAD_TIME: Duration = Duration.ofSeconds(3)
+val ACTIM_REPORT_TIME:Duration = Duration.ofSeconds(5)
+val ACTIM_DEAD_TIME:  Duration = Duration.ofSeconds(3)
+val ACTIM_BOOT_TIME:  Duration = Duration.ofSeconds(30)
 const val ACTIS_CHECK_SECS = 15L
 
 var options = Options("")
@@ -107,20 +108,24 @@ val serverName = "Actis%03d".format(serverId)
 
 val serverAddress: String = run {
     if (wlan == "") "192.168.4.1"
-    val config = "/usr/sbin/ifconfig $wlan".runCommand()
-    val regex = "inet\\s+([0-9.]+)".toRegex()
-    val ipMatch = regex.find(config)
-    if (ipMatch != null) ipMatch.groupValues[1]
-    else "192.168.4.1"
+    else {
+        val config = "/usr/sbin/ifconfig $wlan".runCommand()
+        val regex = "inet\\s+([0-9.]+)".toRegex()
+        val ipMatch = regex.find(config)
+        if (ipMatch != null) ipMatch.groupValues[1]
+        else "192.168.4.1"
+    }
 }
 
 val myIp: String = run {
     if (eth == "") ""
-    val config = "/usr/sbin/ifconfig $eth".runCommand()
-    val regex = "inet\\s+([0-9.]+)".toRegex()
-    val ipMatch = regex.find(config)
-    if (ipMatch != null) ipMatch.groupValues[1]
-    else ""
+    else {
+        val config = "/usr/sbin/ifconfig $eth".runCommand()
+        val regex = "inet\\s+([0-9.]+)".toRegex()
+        val ipMatch = regex.find(config)
+        if (ipMatch != null) ipMatch.groupValues[1]
+        else ""
+    }
 }
 
 lateinit var Self: Actiserver

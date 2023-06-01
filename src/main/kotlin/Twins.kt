@@ -311,6 +311,7 @@ class Actimetre(
 
     fun loop(now: ZonedDateTime) {
         if (lastSeen == TimeZero) return
+        if (Duration.between(bootTime, now) < ACTIM_BOOT_TIME) return
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
             if (isDead) return
             mqttLog("Killing ${actimName()}")
