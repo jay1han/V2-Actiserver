@@ -34,8 +34,10 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
         } else ""
         printLog("Response=${response.trim()}")
         return response
-    } catch(e:IOException) {
-        printLog("IOException: couldn't connect")
+    } catch(e: socket.IOException) {
+        printLog("socket.IOException: couldn't connect")
+    } catch(e: java.net.ConnectException) {
+        printLog("java.net.ConnectException: couldn't connect")
     }
     return ""
 }
