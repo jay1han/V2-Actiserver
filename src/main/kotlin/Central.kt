@@ -5,7 +5,6 @@ import kotlinx.serialization.json.Json
 import mqtt.packets.Qos
 import java.io.BufferedReader
 import java.io.DataOutputStream
-import java.io.IOException
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
@@ -35,9 +34,9 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
         printLog("Response=${response.trim()}")
         return response
     } catch(e: socket.IOException) {
-        printLog("socket.IOException: couldn't connect")
+        printLog("httpRequest:socket.IOException: couldn't connect")
     } catch(e: java.net.ConnectException) {
-        printLog("java.net.ConnectException: couldn't connect")
+        printLog("httpRequest:java.net.ConnectException: couldn't connect")
     }
     return ""
 }
@@ -69,14 +68,17 @@ fun mqttLog(text: String) {
     printLog("[${now().prettyFormat()}] $text")
     if (options.logging) {
         try {
-            mqttClient.publish(
-                    true, Qos.AT_MOST_ONCE, "$MQTT_LOG/%03d".format(serverId),
-                    "${now().prettyFormat()} [$serverName] $text".toByteArray().toUByteArray()
-                )
-        } catch (e: IOException) {
-            try {
+            if (!mqttClient.running) {
                 mqttClient = MQTTClient(4, MQTT_HOST, MQTT_PORT, null, keepAlive = 0) {}
-            } catch (e: IOException) {}
+            }
+            mqttClient.publish(
+                true, Qos.AT_MOST_ONCE, "$MQTT_LOG/%03d".format(serverId),
+                "${now().prettyFormat()} [$serverName] $text".toByteArray().toUByteArray()
+            )
+        } catch (e: socket.IOException) {
+            printLog("mqttLog:socket.IOException: couldn't connect")
+        } catch (e: java.net.ConnectException) {
+            printLog("mqttLog:java.net.ConnectException: couldn't connect")
         }
     }
 }
