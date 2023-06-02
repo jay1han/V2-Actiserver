@@ -1,9 +1,10 @@
 
 import java.io.*
+import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "203"
+const val VERSION_STRING = "204"
 
 var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
@@ -21,6 +22,7 @@ val ACTIM_REPORT_TIME:Duration = Duration.ofSeconds(5)
 val ACTIM_DEAD_TIME:  Duration = Duration.ofSeconds(3)
 val ACTIM_BOOT_TIME:  Duration = Duration.ofSeconds(30)
 const val ACTIS_CHECK_SECS = 15L
+val LOG_SIZE = 1_000_000
 
 var options = Options("")
 
@@ -86,7 +88,7 @@ val myMachine = run {
 val ifconfig = "/usr/sbin/ifconfig -a".runCommand()
 
 val wlan:String = run {
-    val regex = "^(w[^:]+)".toRegex(RegexOption.MULTILINE)
+    val regex = "^(w[^:]+).+RUNNING".toRegex(RegexOption.MULTILINE)
     val ifMatch = regex.find(ifconfig)
     if (ifMatch != null) ifMatch.groupValues[1]
     else ""
@@ -132,7 +134,8 @@ lateinit var Self: Actiserver
 
 fun printLog(message: String) {
     if (options.echo) println(message)
-    with (PrintWriter(FileWriter(LOG_FILE, true))) {
+    val append = File(LOG_FILE).length() < LOG_SIZE
+    with (PrintWriter(FileWriter(LOG_FILE, append))) {
         println("[$serverName] $message")
         close()
     }
