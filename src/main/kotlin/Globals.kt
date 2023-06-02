@@ -1,6 +1,5 @@
 
 import java.io.*
-import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
@@ -20,7 +19,7 @@ const val LOG_FILE = "/etc/actimetre/server.log"
 const val CENTRAL_BIN = "/bin/acticentral.py?"
 val ACTIM_REPORT_TIME:Duration = Duration.ofSeconds(5)
 val ACTIM_DEAD_TIME:  Duration = Duration.ofSeconds(3)
-val ACTIM_BOOT_TIME:  Duration = Duration.ofSeconds(30)
+val ACTIM_BOOT_TIME:  Duration = Duration.ofSeconds(5)
 const val ACTIS_CHECK_SECS = 15L
 val LOG_SIZE = 1_000_000
 
