@@ -7,10 +7,7 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
-import java.time.Clock
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
+import java.time.*
 import java.time.format.DateTimeFormatter
 
 var Registry = mutableMapOf<String, Int>()
@@ -41,6 +38,10 @@ fun now(): ZonedDateTime {
 
 fun ZonedDateTime.prettyFormat(): String {
     return this.format(prettyFormat)
+}
+
+fun Duration.printSec(): String {
+    return "${this.toSeconds().toString()}s"
 }
 
 fun ZonedDateTime.actiFormat(): String {
