@@ -124,7 +124,12 @@ fun newClient (channel: ByteChannel) {
             return
         }
     } else {
-        printLog("Known Actim%04d".format(actimId))
+        if (actimId in Self.actimetreList.keys) {
+            printLog("Actim%04d already running, close old channel".format(actimId))
+            Self.actimetreList[actimId]!!.dies()
+        } else {
+            printLog("Returning Actim%04d".format(actimId))
+        }
     }
 
     val a = Self.updateActimetre(newActimId, mac, boardType, version, bootTime, sensorBits)
