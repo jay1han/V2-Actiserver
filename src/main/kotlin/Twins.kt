@@ -217,14 +217,16 @@ class Actimetre(
 
     fun run(channel: ByteChannel) {
         this.channel = channel
+        val sensorBuffer = ByteBuffer.allocate(msgLength)
+        val sensor = sensorBuffer.array()
         while (true) {
-            val sensorBuffer = ByteBuffer.allocate(msgLength)
             var inputLen: Int
+            sensorBuffer.position(0)
             try {
                 inputLen = this.channel.read(sensorBuffer)
-                while (inputLen < msgLength) {
-                    inputLen += this.channel.read(sensorBuffer)
-                }
+//                while (inputLen < msgLength) {
+//                    inputLen += this.channel.read(sensorBuffer)
+//            }
             } catch (e: AsynchronousCloseException) {
                 printLog("${actimName()} Asynchronous Close")
                 return
@@ -235,49 +237,54 @@ class Actimetre(
                 printLog("${actimName()} Socket")
                 return
             }
-
-            val sensor = sensorBuffer.array()
-            val msgBootEpoch = sensor.getInt3At(0)
-            val msgMillis = (sensor[3].toUByte().toInt() and 0x03) * 256 +
-                    sensor[4].toUByte().toInt()
-            val msgDateTime = ZonedDateTime.ofInstant(
-                Instant.ofEpochSecond(msgBootEpoch + bootEpoch, msgMillis * 1_000_000L),
-                ZoneId.of("Z"))
-            if (lastMessage == TimeZero) {
-                totalPoints = 1
-                missingPoints = 0
-
-                Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
-                    repoSize += it.fileSize()
-                }
+            if (inputLen != msgLength) {
+                println("${actimName()} sent $inputLen bytes < $msgLength. Skipping")
             } else {
-                val cycles = Duration.between(lastMessage, msgDateTime)
-                    .dividedBy(Duration.ofNanos(cycleNanoseconds))
-                    .toInt()
-                if (cycles > 1) {
-                    missingPoints += cycles - 1
-                    printLog("${actimName()} missed cycle $missingPoints / $totalPoints = ${missingPoints.toDouble() / totalPoints}")
+                lastSeen = now()
+                val msgBootEpoch = sensor.getInt3At(0)
+                val msgMillis = (sensor[3].toUByte().toInt() and 0x03) * 256 +
+                        sensor[4].toUByte().toInt()
+                val msgDateTime = ZonedDateTime.ofInstant(
+                    Instant.ofEpochSecond(msgBootEpoch + bootEpoch, msgMillis * 1_000_000L),
+                    ZoneId.of("Z")
+                )
+                if (lastMessage == TimeZero) {
+                    totalPoints = 1
+                    missingPoints = 0
+
+                    Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+                        repoSize += it.fileSize()
+                    }
+                } else {
+                    val cycles = Duration.between(lastMessage, msgDateTime)
+                        .dividedBy(Duration.ofNanos(cycleNanoseconds))
+                        .toInt()
+                    totalPoints += cycles
+                    if (cycles > 1) {
+                        missingPoints += cycles - 1
+                        printLog("${actimName()} missed cycle $missingPoints / $totalPoints = ${missingPoints.toDouble() / totalPoints}")
+                    }
+                    rating = missingPoints.toDouble() / totalPoints.toDouble()
                 }
-                totalPoints += cycles
-                rating = missingPoints.toDouble() / totalPoints.toDouble()
-            }
-            lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
+                lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
 
-            val msgOOBD = sensor[3].toUByte().toInt() shr 2
-            val msgFrequency = msgOOBD and 0x07
-            frequency = Frequencies[msgFrequency]
-            cycleNanoseconds = 1_000_000_000L / frequency
+                val msgOOBD = sensor[3].toUByte().toInt() shr 2
+                val msgFrequency = msgOOBD and 0x07
+                frequency = Frequencies[msgFrequency]
+                cycleNanoseconds = 1_000_000_000L / frequency
 
-            var index = 5
-            while (index < msgLength) {
-                val record = Record(sensor.sliceArray(index until (index + DATA_LENGTH)),
-                    sensorOrder[index / DATA_LENGTH], bootEpoch, msgBootEpoch, msgMillis)
-                if (!sensorList.containsKey(record.sensorId))
-                    sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
-                repoSize += sensorList[record.sensorId]!!.writeData(record)
-                index += DATA_LENGTH
+                var index = 5
+                while (index < msgLength) {
+                    val record = Record(
+                        sensor.sliceArray(index until (index + DATA_LENGTH)),
+                        sensorOrder[index / DATA_LENGTH], bootEpoch, msgBootEpoch, msgMillis
+                    )
+                    if (!sensorList.containsKey(record.sensorId))
+                        sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
+                    repoSize += sensorList[record.sensorId]!!.writeData(record)
+                    index += DATA_LENGTH
+                }
             }
-            lastSeen = now()
         }
     }
 
@@ -314,7 +321,8 @@ class Actimetre(
         if (Duration.between(bootTime, now) < ACTIM_BOOT_TIME) return
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
             if (isDead) return
-            mqttLog("Killing ${actimName()}")
+            mqttLog("${actimName()} last seen ${lastSeen.prettyFormat()}, " +
+            "${Duration.between(lastSeen, now).printSec()} before now ${now.prettyFormat()}")
             if (this::channel.isInitialized) channel.close()
             else dies()
         } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
