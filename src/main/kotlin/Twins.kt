@@ -217,16 +217,11 @@ class Actimetre(
 
     fun run(channel: ByteChannel) {
         this.channel = channel
-        val sensorBuffer = ByteBuffer.allocate(msgLength)
-        val sensor = sensorBuffer.array()
         while (true) {
             var inputLen: Int
-            sensorBuffer.position(0)
+            val sensorBuffer = ByteBuffer.allocate(msgLength)
             try {
                 inputLen = this.channel.read(sensorBuffer)
-//                while (inputLen < msgLength) {
-//                    inputLen += this.channel.read(sensorBuffer)
-//            }
             } catch (e: AsynchronousCloseException) {
                 printLog("${actimName()} Asynchronous Close")
                 return
@@ -241,6 +236,7 @@ class Actimetre(
                 println("${actimName()} sent $inputLen bytes < $msgLength. Skipping")
             } else {
                 lastSeen = now()
+                val sensor = sensorBuffer.array()
                 val msgBootEpoch = sensor.getInt3At(0)
                 val msgMillis = (sensor[3].toUByte().toInt() and 0x03) * 256 +
                         sensor[4].toUByte().toInt()
@@ -268,8 +264,7 @@ class Actimetre(
                 }
                 lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
 
-                val msgOOBD = sensor[3].toUByte().toInt() shr 2
-                val msgFrequency = msgOOBD and 0x07
+                val msgFrequency = (sensor[3].toUByte().toInt() shr 2) and 0x07
                 frequency = Frequencies[msgFrequency]
                 cycleNanoseconds = 1_000_000_000L / frequency
 
@@ -317,14 +312,14 @@ class Actimetre(
     }
 
     fun loop(now: ZonedDateTime) {
-        if (lastSeen == TimeZero) return
+        if (lastSeen == TimeZero || isDead || !this::channel.isInitialized) return
         if (Duration.between(bootTime, now) < ACTIM_BOOT_TIME) return
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
             if (isDead) return
             mqttLog("${actimName()} last seen ${lastSeen.prettyFormat()}, " +
             "${Duration.between(lastSeen, now).printSec()} before now ${now.prettyFormat()}")
             if (this::channel.isInitialized) channel.close()
-            else dies()
+            dies()
         } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
             val reqString = CENTRAL_BIN + "action=actimetre" +
                     "&serverId=${serverId}&actimId=${actimId}"
@@ -343,6 +338,7 @@ class Actimetre(
         lastReport = TimeZero
         totalPoints = 0
         missingPoints = 0
+        rating = 0.0
         bootEpoch = bootTime.toEpochSecond()
         nSensors = 0
         for (port in 0..1) {
