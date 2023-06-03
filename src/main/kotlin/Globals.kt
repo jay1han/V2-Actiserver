@@ -131,7 +131,7 @@ fun printLog(message: String) {
     if (options.echo) println(message)
     val append = File(LOG_FILE).length() < LOG_SIZE
     with (PrintWriter(FileWriter(LOG_FILE, append))) {
-        println("[$serverName] $message")
+        println("[${now().prettyFormat()}] $message")
         close()
     }
 }
