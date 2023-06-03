@@ -148,6 +148,7 @@ class SensorInfo(
 }
 
 val Frequencies = listOf(50, 100, 1, 200, 30, 10)
+const val FREQ_COUNT = 4
 
 @Serializable
 class ActimetreShort(
@@ -264,7 +265,11 @@ class Actimetre(
                 }
                 lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
 
-                val msgFrequency = (sensor[3].toUByte().toInt() shr 2) and 0x07
+                var msgFrequency = (sensorBuffer[3].toUByte().toInt() shr 2) and 0x07
+                if (msgFrequency >= FREQ_COUNT) {
+                    printLog("Unknown frequency code $msgFrequency, revert to base")
+                    msgFrequency = 0
+                }
                 frequency = Frequencies[msgFrequency]
                 cycleNanoseconds = 1_000_000_000L / frequency
 
