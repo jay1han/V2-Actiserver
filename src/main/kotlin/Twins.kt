@@ -233,7 +233,7 @@ class Actimetre(
                 return
             }
             if (inputLen != msgLength) {
-                println("${actimName()} sent $inputLen bytes < $msgLength. Skipping")
+                printLog("${actimName()} sent $inputLen bytes < $msgLength. Skipping")
             } else {
                 lastSeen = now()
                 val sensor = sensorBuffer.array()
