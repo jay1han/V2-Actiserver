@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalUnsignedTypes::class)
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.decodeFromString
@@ -41,7 +42,7 @@ fun ZonedDateTime.prettyFormat(): String {
 }
 
 fun Duration.printSec(): String {
-    return this.toSeconds().toString()
+    return "${this.toSeconds().toString()}s"
 }
 
 fun ZonedDateTime.actiFormat(): String {
@@ -56,10 +57,10 @@ fun String.parseFileDate(): ZonedDateTime {
     return this.substring(13,27).parseActiFormat()
 }
 
-fun ByteArray.getInt3At(index: Int): Long {
-    return (this[index].toUByte().toLong() shl 16) or
-            (this[index + 1].toUByte().toLong() shl 8) or
-            this[index + 2].toUByte().toLong()
+fun UByteArray.getInt3At(index: Int): Long {
+    return (this[index].toLong() shl 16) or
+            (this[index + 1].toLong() shl 8) or
+            this[index + 2].toLong()
 }
 
 fun UByte.parseSensorBits(): String {

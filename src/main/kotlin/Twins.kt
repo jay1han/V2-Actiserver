@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalUnsignedTypes::class)
 
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
@@ -21,7 +22,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
 
-class Record(buffer: ByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Int) {
+class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Int) {
     private val diffMillis = buffer[0].toUByte().toInt() * 256 + buffer[1].toUByte().toInt()
     private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
     val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
@@ -34,12 +35,12 @@ class Record(buffer: ByteArray, val sensorId: String, bootEpoch: Long, msgBootEp
             ".%03d ".format(dateTime.nano / 1000000L) +
             accelStr + " " + gyroStr
 
-    private fun makeInt(msb: Byte, lsb: Byte) : Int {
+    private fun makeInt(msb: UByte, lsb: UByte) : Int {
         var integer = msb.toUByte().toInt() * 256 + lsb.toUByte().toInt()
         if (integer >= 32768) integer -= 65536
         return integer
     }
-    private fun makeAccelStr(buffer: ByteArray): String{
+    private fun makeAccelStr(buffer: UByteArray): String{
         val rawX = makeInt(buffer[0], buffer[1])
         val rawY = makeInt(buffer[2], buffer[3])
         val rawZ = makeInt(buffer[4], buffer[5])
@@ -50,7 +51,7 @@ class Record(buffer: ByteArray, val sensorId: String, bootEpoch: Long, msgBootEp
         ).joinToString(separator = " ") { "%+7.4f".format(it) }
     }
 
-    private fun makeGyroStr(buffer: ByteArray): String {
+    private fun makeGyroStr(buffer: UByteArray): String {
         val rawX = makeInt(buffer[0], buffer[1])
         val rawY = makeInt(buffer[2], buffer[3])
         return arrayOf(
@@ -148,7 +149,7 @@ class SensorInfo(
 }
 
 val Frequencies = listOf(50, 100, 1, 200, 30, 10)
-const val FREQ_COUNT = 4
+const val FREQ_COUNT = 6
 
 @Serializable
 class ActimetreShort(
@@ -237,14 +238,23 @@ class Actimetre(
                 printLog("${actimName()} sent $inputLen bytes < $msgLength. Skipping")
             } else {
                 lastSeen = now()
-                val sensor = sensorBuffer.array()
-                val msgBootEpoch = sensor.getInt3At(0)
-                val msgMillis = (sensor[3].toUByte().toInt() and 0x03) * 256 +
-                        sensor[4].toUByte().toInt()
+                val sensorData = sensorBuffer.array().toUByteArray()
+                val msgBootEpoch = sensorData.getInt3At(0)
+                val msgMillis = (sensorData[3].toInt() and 0x03) * 256 +
+                        sensorData[4].toInt()
                 val msgDateTime = ZonedDateTime.ofInstant(
                     Instant.ofEpochSecond(msgBootEpoch + bootEpoch, msgMillis * 1_000_000L),
                     ZoneId.of("Z")
                 )
+
+                var msgFrequency = (sensorBuffer[3].toUByte().toInt() shr 2) and 0x07
+                if (msgFrequency >= FREQ_COUNT) {
+                    printLog("Unknown frequency code $msgFrequency, revert to base")
+                    msgFrequency = 0
+                }
+                frequency = Frequencies[msgFrequency]
+                cycleNanoseconds = 1_000_000_000L / frequency
+
                 if (lastMessage == TimeZero) {
                     totalPoints = 1
                     missingPoints = 0
@@ -256,6 +266,10 @@ class Actimetre(
                     val cycles = Duration.between(lastMessage, msgDateTime)
                         .dividedBy(Duration.ofNanos(cycleNanoseconds))
                         .toInt()
+                    if (cycles > frequency) {
+                        printLog("${actimName()} jumped over $cycles cycles")
+                        printLog(sensorData.joinToString(separator = " ") {"%02X".format(it)})
+                    }
                     totalPoints += cycles
                     if (cycles > 1) {
                         missingPoints += cycles - 1
@@ -265,18 +279,10 @@ class Actimetre(
                 }
                 lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
 
-                var msgFrequency = (sensorBuffer[3].toUByte().toInt() shr 2) and 0x07
-                if (msgFrequency >= FREQ_COUNT) {
-                    printLog("Unknown frequency code $msgFrequency, revert to base")
-                    msgFrequency = 0
-                }
-                frequency = Frequencies[msgFrequency]
-                cycleNanoseconds = 1_000_000_000L / frequency
-
                 var index = 5
                 while (index < msgLength) {
                     val record = Record(
-                        sensor.sliceArray(index until (index + DATA_LENGTH)),
+                        sensorData.sliceArray(index until (index + DATA_LENGTH)),
                         sensorOrder[index / DATA_LENGTH], bootEpoch, msgBootEpoch, msgMillis
                     )
                     if (!sensorList.containsKey(record.sensorId))
