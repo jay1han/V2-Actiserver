@@ -220,10 +220,13 @@ class Actimetre(
     fun run(channel: ByteChannel) {
         this.channel = channel
         while (true) {
-            var inputLen: Int
+            var inputLen: Int = 0
             val sensorBuffer = ByteBuffer.allocate(msgLength)
+            val timeout = now().plusSeconds(1)
             try {
-                inputLen = this.channel.read(sensorBuffer)
+                while (inputLen < msgLength && now().isBefore(timeout)) {
+                    inputLen += this.channel.read(sensorBuffer)
+                }
             } catch (e: AsynchronousCloseException) {
                 printLog("${actimName()} Asynchronous Close")
                 return
