@@ -1,8 +1,6 @@
-@file:OptIn(ExperimentalUnsignedTypes::class)
 
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import mqtt.packets.Qos
 import java.io.BufferedReader
 import java.io.DataOutputStream
 import java.io.InputStreamReader
@@ -44,7 +42,7 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
 fun selfToCentral() {
     synchronized(Self) {
         Self.lastReport = now()
-        mqttLog("v${VERSION_STRING} Alive with " +
+        printLog("v${VERSION_STRING} Alive with " +
                 if (Self.actimetreList.isEmpty()) "no Actimetres"
                 else Self.actimetreList.keys.sorted().joinToString(separator = " ") {
                     "Actim%04d".format(it) + Self.actimetreList[it]?.let {
@@ -58,27 +56,6 @@ fun selfToCentral() {
         if (registryText != "") {
             loadRegistry(registryText)
             printLog("Registry: " + Registry.toString())
-        }
-    }
-}
-
-var mqttClient = MQTTClient(4, MQTT_HOST, MQTT_PORT, null, keepAlive = 0) {}
-
-fun mqttLog(text: String) {
-    printLog("[${now().prettyFormat()}] $text")
-    if (options.logging) {
-        try {
-            if (!mqttClient.running) {
-                mqttClient = MQTTClient(4, MQTT_HOST, MQTT_PORT, null, keepAlive = 0) {}
-            }
-            mqttClient.publish(
-                true, Qos.AT_MOST_ONCE, "$MQTT_LOG/%03d".format(serverId),
-                "${now().prettyFormat()} [$serverName] $text".toByteArray().toUByteArray()
-            )
-        } catch (e: socket.IOException) {
-            printLog("mqttLog:socket.IOException: couldn't connect")
-        } catch (e: java.net.ConnectException) {
-            printLog("mqttLog:java.net.ConnectException: couldn't connect")
         }
     }
 }

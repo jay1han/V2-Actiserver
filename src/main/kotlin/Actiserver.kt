@@ -21,13 +21,13 @@ fun main(args: Array<String>) {
     println("$serverName at $myIp device $wlan on channel $myChannel as $serverAddress")
 
     if (serverId > 0) {
-        mqttLog("$serverName started")
+        printLog("$serverName started")
 
         if (options.echo) println("Echo on")
         if (!options.logging) println("Logging off")
         if (options.test) println("Test mode")
         println("REPO_ROOT = $REPO_ROOT. MAX_REPO_SIZE = $MAX_REPO_SIZE, MAX_REPO_TIME = $MAX_REPO_TIME")
-        println("CENTRAL_HOST = $CENTRAL_HOST. MQTT_HOST = $MQTT_HOST")
+        println("CENTRAL_HOST = $CENTRAL_HOST")
     } else {
         println("Unable to discover serverId, quitting")
         exitProcess(1)
@@ -114,11 +114,11 @@ fun newClient (channel: ByteChannel) {
                         fileSize += it.fileSize()
                         it.toFile().delete()
                     }
-                    mqttLog("Removed $fileNums files ($fileSize bytes) of old Actim%04d".format(newActimId))
+                    printLog("Removed $fileNums files ($fileSize bytes) of old Actim%04d".format(newActimId))
                 } catch(e:IOException) {}
                 " CLEAN"
             } else ""
-            mqttLog("New Actim%04d for MAC=$mac".format(newActimId) + isNew)
+            printLog("New Actim%04d for MAC=$mac".format(newActimId) + isNew)
         } else {
             printLog("Received error from Acticentral, denying Actimetre")
             return
@@ -133,7 +133,7 @@ fun newClient (channel: ByteChannel) {
     }
 
     val a = Self.updateActimetre(newActimId, mac, boardType, version, bootTime, sensorBits)
-    mqttLog("${a.actimName()} type $boardType version $version sensors " +
+    printLog("${a.actimName()} type $boardType version $version sensors " +
             sensorBits.parseSensorBits() +
             " booted at ${bootTime.prettyFormat()}")
     selfToCentral()
@@ -151,7 +151,7 @@ fun newClient (channel: ByteChannel) {
     a.run(channel)
 
     a.dies()
-    mqttLog("Cleaning up ${a.actimName()}")
+    printLog("Cleaning up ${a.actimName()}")
     selfToCentral()
 }
 

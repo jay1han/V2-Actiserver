@@ -3,17 +3,14 @@ import java.io.*
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "205"
+const val VERSION_STRING = "210"
 
 var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
-var MQTT_HOST = "actimetre.fr"
-var MQTT_PORT = 1883
 var ACTI_PORT = 2883
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 
-const val MQTT_LOG = "Acti"
 var REPO_ROOT = "/media/actimetre"
 const val LOG_FILE = "/etc/actimetre/server.log"
 const val CENTRAL_BIN = "/bin/acticentral.py?"
@@ -21,7 +18,7 @@ val ACTIM_REPORT_TIME:Duration = Duration.ofSeconds(5)
 val ACTIM_DEAD_TIME:  Duration = Duration.ofSeconds(3)
 val ACTIM_BOOT_TIME:  Duration = Duration.ofSeconds(5)
 const val ACTIS_CHECK_SECS = 15L
-val LOG_SIZE = 1_000_000
+const val LOG_SIZE = 1_000_000
 
 var options = Options("")
 
@@ -43,7 +40,6 @@ class Options(configFileName: String = "") {
                     when (key.lowercase()) {
                         "repo_root" -> REPO_ROOT = value
                         "central_host" -> CENTRAL_HOST = value
-                        "mqtt_host" -> MQTT_HOST = value
                         "max_repo_size" -> MAX_REPO_SIZE = value.replace("_", "").toInt()
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
                         "options" -> for (c in value.toCharArray()) {

@@ -41,7 +41,7 @@ fun ZonedDateTime.prettyFormat(): String {
 }
 
 fun Duration.printSec(): String {
-    return "${this.toSeconds().toString()}s"
+    return this.toSeconds().toString()
 }
 
 fun ZonedDateTime.actiFormat(): String {

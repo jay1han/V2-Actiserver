@@ -103,7 +103,7 @@ class SensorInfo(
             val file = File(lastRepoFile.fullName())
             file.setWritable(true, false)
             fileHandle = BufferedWriter(FileWriter(file, true), 16384)
-            mqttLog("Continue data file $lastRepoFile")
+            printLog("Continue data file $lastRepoFile")
         }
     }
 
@@ -114,7 +114,7 @@ class SensorInfo(
         val file = File(fileName.fullName())
         file.setWritable(true, false)
         fileHandle = BufferedWriter(FileWriter(file), 16384)
-        mqttLog("Start data file $fileName")
+        printLog("Start data file $fileName")
     }
 
     fun writeData(record: Record): Int {
@@ -294,7 +294,7 @@ class Actimetre(
         val reqString = CENTRAL_BIN + "action=actimetre-off" +
                 "&serverId=${serverId}&actimId=${actimId}"
         sendHttpRequest(reqString)
-        mqttLog("${actimName()} dies")
+        printLog("${actimName()} dies")
         for (sensorInfo in sensorList.values) {
             sensorInfo.closeIfOpen()
         }
@@ -321,7 +321,7 @@ class Actimetre(
         if (Duration.between(bootTime, now) < ACTIM_BOOT_TIME) return
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
             if (isDead) return
-            mqttLog("${actimName()} last seen ${lastSeen.prettyFormat()}, " +
+            printLog("${actimName()} last seen ${lastSeen.prettyFormat()}, " +
             "${Duration.between(lastSeen, now).printSec()} before now ${now.prettyFormat()}")
             if (this::channel.isInitialized) channel.close()
             dies()
