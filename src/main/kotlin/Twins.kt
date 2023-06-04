@@ -1,19 +1,17 @@
 @file:OptIn(ExperimentalUnsignedTypes::class)
 
-import kotlinx.serialization.Required
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
-import kotlinx.serialization.encodeToString
+import kotlinx.serialization.*
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
-import java.io.IOException
-import java.net.SocketException
 import java.nio.ByteBuffer
-import java.nio.channels.AsynchronousCloseException
 import java.nio.channels.ByteChannel
-import java.nio.channels.ClosedChannelException
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -23,7 +21,7 @@ import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
 
 class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Int) {
-    private val diffMillis = buffer[0].toUByte().toInt() * 256 + buffer[1].toUByte().toInt()
+    private val diffMillis = buffer[0].toInt() * 256 + buffer[1].toInt()
     private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
     val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
         Instant.ofEpochSecond((msgBootEpoch + bootEpoch + adjEpoch),
@@ -36,7 +34,7 @@ class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootE
             accelStr + " " + gyroStr
 
     private fun makeInt(msb: UByte, lsb: UByte) : Int {
-        var integer = msb.toUByte().toInt() * 256 + lsb.toUByte().toInt()
+        var integer = msb.toInt() * 256 + lsb.toInt()
         if (integer >= 32768) integer -= 65536
         return integer
     }
@@ -131,19 +129,11 @@ class SensorInfo(
         return record.textStr.length + 1
     }
 
-    fun flushIfOpen() {
-        if (this::fileHandle.isInitialized) {
-            try {
-                fileHandle.flush()
-            } catch(e: IOException) {}
-        }
-    }
-
     fun closeIfOpen() {
         if (this::fileHandle.isInitialized) {
             try {
                 fileHandle.close()
-            } catch (e: IOException) {}
+            } catch (e: Throwable) {}
         }
     }
 }
@@ -179,7 +169,7 @@ class ActimetreShort(
         isDead = a.isDead
         bootTime = a.bootTime
         lastSeen = a.lastSeen
-        lastReport = a.lastReport
+        lastReport = now()
         sensorStr = a.sensorStr()
         frequency = a.frequency
         rating = a.rating
@@ -213,28 +203,17 @@ class Actimetre(
     var rating = 0.0
     var repoSize: Long = 0
 
-    private fun toCentral(): ActimetreShort {
-        return ActimetreShort().init(this)
-    }
-
     fun run(channel: ByteChannel) {
         this.channel = channel
         while (true) {
-            var inputLen: Int = 0
+            var inputLen = 0
             val sensorBuffer = ByteBuffer.allocate(msgLength)
             val timeout = now().plusSeconds(1)
             try {
                 while (inputLen < msgLength && now().isBefore(timeout)) {
                     inputLen += this.channel.read(sensorBuffer)
                 }
-            } catch (e: AsynchronousCloseException) {
-                printLog("${actimName()} Asynchronous Close")
-                return
-            } catch (e: ClosedChannelException) {
-                printLog("${actimName()} Closed Channel")
-                return
-            } catch (e: SocketException) {
-                printLog("${actimName()} Socket")
+            } catch (e: Throwable) {
                 return
             }
             if (inputLen != msgLength) {
@@ -300,6 +279,8 @@ class Actimetre(
     fun dies() {
         if (isDead) return
         isDead = true
+        frequency = 0
+        bootTime = TimeZero
         val reqString = CENTRAL_BIN + "action=actimetre-off" +
                 "&serverId=${serverId}&actimId=${actimId}"
         sendHttpRequest(reqString)
@@ -330,16 +311,12 @@ class Actimetre(
         if (Duration.between(bootTime, now) < ACTIM_BOOT_TIME) return
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
             if (isDead) return
-            printLog("${actimName()} last seen ${lastSeen.prettyFormat()}, " +
-            "${Duration.between(lastSeen, now).printSec()} before now ${now.prettyFormat()}")
+            printLog(
+                "${actimName()} last seen ${lastSeen.prettyFormat()}, " +
+                        "${Duration.between(lastSeen, now).printSec()} before now ${now.prettyFormat()}"
+            )
             if (this::channel.isInitialized) channel.close()
             dies()
-        } else if (Duration.between(lastReport, now) > ACTIM_REPORT_TIME) {
-            val reqString = CENTRAL_BIN + "action=actimetre" +
-                    "&serverId=${serverId}&actimId=${actimId}"
-            sendHttpRequest(reqString, Json.encodeToString(toCentral()))
-            lastReport = now
-            sensorList.values.map {it.flushIfOpen()}
         }
     }
 
@@ -375,6 +352,21 @@ class Actimetre(
     }
 }
 
+object ActimetreShortList: KSerializer<Map<Int, ActimetreShort>> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("Map<Int, ActimetreShort>", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: Map<Int, ActimetreShort>) {
+        val stringList: MutableList<String> = mutableListOf()
+        for (a in value.values) {
+            stringList += Json.encodeToString(a)
+        }
+        encoder.encodeString(stringList.joinToString(separator = ",", prefix = "[", postfix = "]"))
+    }
+    override fun deserialize(decoder: Decoder): Map<Int, ActimetreShort> {
+        return mapOf()
+    }
+}
+
 @Serializable
 class ActiserverShort(
     @Required var serverId: Int = 0,
@@ -384,7 +376,8 @@ class ActiserverShort(
     @Required var ip: String = "0.0.0.0",
     @Serializable(with = DateTimeAsString::class)
     @Required var lastReport : ZonedDateTime = TimeZero,
-    @Required var actimetreList : Set<Int> = setOf(),
+    @Serializable(with = ActimetreShortList::class)
+    @Required var actimetreList: Map<Int, ActimetreShort> = mapOf(),
 ) {
     fun init(s: Actiserver) : ActiserverShort {
         serverId = s.serverId
@@ -393,7 +386,10 @@ class ActiserverShort(
         channel = s.channel
         ip = s.ip
         lastReport = s.lastReport
-        actimetreList = s.actimetreList.keys.toSet()
+        for (a in s.actimetreList.values) {
+            a.lastReport = s.lastReport
+        }
+        actimetreList = s.actimetreList.map { Pair(it.key, ActimetreShort().init(it.value)) }.toMap()
         return this
     }
 }
@@ -409,6 +405,7 @@ class Actiserver(
     var actimetreList = mutableMapOf<Int, Actimetre>()
 
     fun toCentral(): ActiserverShort {
+        lastReport = now()
         return ActiserverShort().init(this)
     }
 
