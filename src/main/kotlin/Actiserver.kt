@@ -149,7 +149,6 @@ fun newClient (channel: ByteChannel) {
     channel.write(outputBuffer)
 
     a.run(channel)
-
     a.dies()
     printLog("Cleaning up ${a.actimName()}")
     selfToCentral()

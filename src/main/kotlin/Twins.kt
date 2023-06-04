@@ -169,7 +169,7 @@ class ActimetreShort(
         isDead = a.isDead
         bootTime = a.bootTime
         lastSeen = a.lastSeen
-        lastReport = now()
+        lastReport = a.lastReport
         sensorStr = a.sensorStr()
         frequency = a.frequency
         rating = a.rating
@@ -179,7 +179,7 @@ class ActimetreShort(
 }
 
 class Actimetre(
-    val actimId   : Int = 9999,
+    val actimId   : Int = 0,
     var mac       : String = "............",
     var boardType : String = "???",
     var version   : String = "000",
@@ -214,6 +214,7 @@ class Actimetre(
                     inputLen += this.channel.read(sensorBuffer)
                 }
             } catch (e: Throwable) {
+                printLog("${actimName()} threw $e")
                 return
             }
             if (inputLen != msgLength) {
@@ -280,7 +281,6 @@ class Actimetre(
         if (isDead) return
         isDead = true
         frequency = 0
-        bootTime = TimeZero
         val reqString = CENTRAL_BIN + "action=actimetre-off" +
                 "&serverId=${serverId}&actimId=${actimId}"
         sendHttpRequest(reqString)
@@ -325,7 +325,7 @@ class Actimetre(
         this.boardType = boardType
         this.version = version
         this.bootTime = bootTime
-        lastSeen = TimeZero
+        lastSeen = bootTime
         lastReport = TimeZero
         totalPoints = 0
         missingPoints = 0
