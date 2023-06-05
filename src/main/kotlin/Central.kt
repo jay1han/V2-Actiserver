@@ -44,7 +44,7 @@ fun selfToCentral() {
                 if (Self.actimetreList.isEmpty()) "no Actimetres"
                 else Self.actimetreList.keys.sorted().joinToString(separator = " ") {
                     "Actim%04d".format(it) + Self.actimetreList[it]?.let {
-                        "@${it.frequency}" + "(${it.sensorStr()})" + "%.3f%%".format(it.rating)
+                        "@${it.frequency}" + "(${it.sensorStr()})" + "%.3f%%".format(it.rating * 100.0)
                     }
                 })
         val reqString = CENTRAL_BIN +
