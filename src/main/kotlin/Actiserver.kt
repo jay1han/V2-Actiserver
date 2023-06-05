@@ -47,11 +47,7 @@ fun main(args: Array<String>) {
         println("Listening... $clientCount")
         val channel = actiServer.accept() as ByteChannel
         clientCount += 1
-        thread(start=true, name="$clientCount", priority=4) {
-            newClient(channel)
-            channel.close()
-            println("Closed channel")
-        }
+        newClient(channel)
     }
 }
 
@@ -148,10 +144,14 @@ fun newClient (channel: ByteChannel) {
     outputBuffer.put(5, (sentEpochTime and 0xFF).toByte())
     channel.write(outputBuffer)
 
-    a.run(channel)
-    a.dies()
-    printLog("Cleaning up ${a.actimName()}")
-    selfToCentral()
+    thread(start=true, name="%04d".format(newActimId), priority=4) {
+        a.run(channel)
+        a.dies()
+        printLog("Cleaning up ${a.actimName()}")
+        selfToCentral()
+        channel.close()
+        println("Closed channel")
+    }
 }
 
 fun mainLoop() {
