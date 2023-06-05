@@ -8,7 +8,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 fun sendHttpRequest(reqString: String, data: String = ""): String {
-    printLog(reqString + if (data != "") ", data=$data" else "")
+    printLog(reqString + if (data != "") "\ndata=${data.cleanJson()}" else "")
     val centralURL = URL("HTTP", CENTRAL_HOST, HTTP_PORT, reqString)
     try {
         val connection = centralURL.openConnection() as HttpURLConnection
@@ -29,7 +29,7 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
             input.close()
             responseText
         } else ""
-        printLog("Response=${response.trim()}")
+        printLog("Response=${response.trim().cleanJson()}")
         return response
     } catch(e: Throwable) {
         printLog("httpRequest:socket.IOException: couldn't connect")
@@ -53,7 +53,6 @@ fun selfToCentral() {
         val registryText = sendHttpRequest(reqString, data)
         if (registryText != "") {
             loadRegistry(registryText)
-            printLog("Registry: " + Registry.toString())
         }
     }
 }

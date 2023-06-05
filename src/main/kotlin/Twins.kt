@@ -288,7 +288,9 @@ class Actimetre(
         for (sensorInfo in sensorList.values) {
             sensorInfo.closeIfOpen()
         }
-        Self.removeActim(actimId)
+        synchronized(Self) {
+            Self.removeActim(actimId)
+        }
         if (this::channel.isInitialized) channel.close()
     }
 

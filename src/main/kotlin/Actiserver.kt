@@ -93,7 +93,7 @@ fun newClient (channel: ByteChannel) {
             sensorBits.parseSensorBits() +
             " booted at ${bootTime.prettyFormat()}")
 
-    val actimId = Registry[mac] ?: 0
+    val actimId = synchronized(Registry) {Registry[mac] ?: 0}
     var newActimId = actimId
     if (actimId == 0) {
         val reqString = CENTRAL_BIN +
@@ -103,7 +103,9 @@ fun newClient (channel: ByteChannel) {
         if (response != "") {
             val responseString = response.trim()
             newActimId = responseString.trim().toInt()
-            Registry[mac] = newActimId
+            synchronized(Registry) {
+                Registry[mac] = newActimId
+            }
 
             val isNew = if (responseString[0] == '+') {
                 var fileNums = 0
@@ -159,7 +161,9 @@ fun mainLoop() {
     var nextReport = now().plusSeconds(ACTIS_CHECK_SECS)
     while (true) {
         val now = now()
-        val actimList = Self.actimetreList.values.toList()
+        val actimList = synchronized(Self) {
+            Self.actimetreList.values.toList()
+        }
         for (a in actimList) {
             a.loop(now)
         }

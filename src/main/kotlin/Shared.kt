@@ -79,3 +79,14 @@ fun UByte.parseSensorBits(): String {
     }
     return sensorStr
 }
+
+fun String.cleanJson(): String {
+    return this
+        .replace(" ", "")
+        .replace("\\\"", "")
+        .replace("\"", "")
+        .replace("\\", "")
+        .replace("[]", "empty")
+        .replace("[", "[\n")
+        .replace("},", "},\n")
+}
