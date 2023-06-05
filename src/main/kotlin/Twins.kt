@@ -186,9 +186,9 @@ class Actimetre(
     val serverId  : Int = 0,
 ) {
     var isDead = false
-    var bootTime = TimeZero
-    var lastSeen = TimeZero
-    var lastReport = TimeZero
+    var bootTime: ZonedDateTime = TimeZero
+    var lastSeen: ZonedDateTime = TimeZero
+    var lastReport: ZonedDateTime = TimeZero
     private var sensorList = mutableMapOf<String, SensorInfo>()
     private var nSensors = 0
     private lateinit var channel: ByteChannel
@@ -250,8 +250,7 @@ class Actimetre(
                         .dividedBy(Duration.ofNanos(cycleNanoseconds))
                         .toInt()
                     if (cycles > frequency) {
-                        printLog("${actimName()} jumped over $cycles cycles")
-                        printLog(sensorData.joinToString(separator = " ") {"%02X".format(it)})
+                        printLog("${actimName()} jumped over ${cycles-1} cycles")
                     }
                     totalPoints += cycles
                     if (cycles > 1) {
@@ -403,7 +402,7 @@ class Actiserver(
     val channel : Int = 0,
     val ip      : String = "0.0.0.0",
 ) {
-    var lastReport = TimeZero
+    var lastReport: ZonedDateTime = TimeZero
     var actimetreList = mutableMapOf<Int, Actimetre>()
 
     fun toCentral(): ActiserverShort {
