@@ -23,8 +23,6 @@ fun main(args: Array<String>) {
     if (serverId > 0) {
         printLog("$serverName started")
 
-        if (options.echo) println("Echo on")
-        if (!options.logging) println("Logging off")
         if (options.test) println("Test mode")
         println("REPO_ROOT = $REPO_ROOT. MAX_REPO_SIZE = $MAX_REPO_SIZE, MAX_REPO_TIME = $MAX_REPO_TIME")
         println("CENTRAL_HOST = $CENTRAL_HOST")

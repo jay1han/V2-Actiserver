@@ -22,9 +22,7 @@ const val LOG_SIZE = 1_000_000
 var options = Options("")
 
 class Options(configFileName: String = "") {
-    var logging: Boolean = true
     var test: Boolean = false
-    var echo: Boolean = false
 
     init {
         println("Loading options from '$configFileName'")
@@ -43,9 +41,7 @@ class Options(configFileName: String = "") {
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
                         "options" -> for (c in value.toCharArray()) {
                             when (c) {
-                                'l' -> logging = false
                                 't' -> test = true
-                                'e' -> echo = true
                                 else -> {}
                             }
                         }
@@ -127,7 +123,6 @@ val myIp: String = run {
 lateinit var Self: Actiserver
 
 fun printLog(message: String) {
-    if (options.echo) println(message)
     val append = File(LOG_FILE).length() < LOG_SIZE
     with (PrintWriter(FileWriter(LOG_FILE, append))) {
         println("[${now().prettyFormat()}] $message")
