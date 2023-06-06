@@ -20,6 +20,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
 
+@OptIn(ExperimentalUnsignedTypes::class)
 class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Int) {
     private val diffMillis = buffer[0].toInt() * 256 + buffer[1].toInt()
     private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
@@ -38,6 +39,8 @@ class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootE
         if (integer >= 32768) integer -= 65536
         return integer
     }
+
+    @OptIn(ExperimentalUnsignedTypes::class)
     private fun makeAccelStr(buffer: UByteArray): String{
         val rawX = makeInt(buffer[0], buffer[1])
         val rawY = makeInt(buffer[2], buffer[3])
@@ -49,6 +52,7 @@ class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootE
         ).joinToString(separator = " ") { "%+7.4f".format(it) }
     }
 
+    @OptIn(ExperimentalUnsignedTypes::class)
     private fun makeGyroStr(buffer: UByteArray): String {
         val rawX = makeInt(buffer[0], buffer[1])
         val rawY = makeInt(buffer[2], buffer[3])
@@ -133,7 +137,9 @@ class SensorInfo(
         if (this::fileHandle.isInitialized) {
             try {
                 fileHandle.close()
-            } catch (e: Throwable) {}
+            } catch (e: Throwable) {
+                printLog("Close file threw $e")
+            }
         }
     }
 }
@@ -203,6 +209,7 @@ class Actimetre(
     var rating = 0.0
     var repoSize: Long = 0
 
+    @OptIn(ExperimentalUnsignedTypes::class)
     fun run(channel: ByteChannel) {
         this.channel = channel
         while (true) {
@@ -230,7 +237,7 @@ class Actimetre(
                     ZoneId.of("Z")
                 )
 
-                var msgFrequency = (sensorBuffer[3].toUByte().toInt() shr 2) and 0x07
+                var msgFrequency = (sensorData[3].toInt() shr 2) and 0x07
                 if (msgFrequency >= FREQ_COUNT) {
                     printLog("Unknown frequency code $msgFrequency, revert to base")
                     msgFrequency = 0
