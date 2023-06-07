@@ -32,7 +32,7 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
         printLog("Response=${response.trim().cleanJson()}")
         return response
     } catch(e: Throwable) {
-        printLog("httpRequest:socket.IOException: couldn't connect")
+        printLog("httpRequest:$e")
     }
     return ""
 }

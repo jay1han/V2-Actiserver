@@ -1,9 +1,11 @@
 
-import java.io.*
+import java.io.File
+import java.io.FileWriter
+import java.io.PrintWriter
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "234"
+const val VERSION_STRING = "235"
 
 var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
@@ -48,7 +50,9 @@ class Options(configFileName: String = "") {
                     }
                 }
             }
-        } catch (e: FileNotFoundException) {}
+        } catch (e: Throwable) {
+            printLog("Config:$e")
+        }
     }
 }
 
@@ -58,7 +62,7 @@ fun String.runCommand(): String {
         val process = ProcessBuilder(*parts.toTypedArray()).start()
         process.waitFor(5, TimeUnit.SECONDS)
         process.inputStream.bufferedReader().readText()
-    } catch(e: IOException) {
+    } catch(e: Throwable) {
         ""
     }
 }

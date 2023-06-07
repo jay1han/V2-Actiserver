@@ -1,9 +1,7 @@
 
-import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.ByteChannel
-import java.nio.channels.ClosedChannelException
 import java.nio.channels.ServerSocketChannel
 import java.time.Instant
 import java.time.ZoneId
@@ -59,13 +57,11 @@ fun newClient (channel: ByteChannel) {
     try {
         inputLen = channel.read(messageBuffer)
         printLog("Init: read $inputLen")
-    } catch (e: IOException) {
-        printLog("IOException")
-        return
-    } catch (e: ClosedChannelException) {
-        printLog("ClosedChannelException")
+    } catch (e: Throwable) {
+        printLog("newClient:$e")
         return
     }
+
     if (inputLen != INIT_LENGTH) {
         printLog("Malformed first message, only $inputLen bytes")
         return
@@ -111,7 +107,9 @@ fun newClient (channel: ByteChannel) {
                         it.toFile().delete()
                     }
                     printLog("Removed $fileNums files ($fileSize bytes) of old Actim%04d".format(newActimId))
-                } catch(e:IOException) {}
+                } catch(e:Throwable) {
+                    printLog("Clean:$e")
+                }
                 " CLEAN"
             } else ""
             printLog("New Actim%04d for MAC=$mac".format(newActimId) + isNew)

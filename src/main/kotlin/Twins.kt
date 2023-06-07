@@ -138,7 +138,7 @@ class SensorInfo(
             try {
                 fileHandle.close()
             } catch (e: Throwable) {
-                printLog("Close file threw $e")
+                printLog("Close file:$e")
             }
         }
     }
@@ -221,7 +221,7 @@ class Actimetre(
                     inputLen += this.channel.read(sensorBuffer)
                 }
             } catch (e: Throwable) {
-                printLog("${actimName()} threw $e")
+                printLog("${actimName()}:$e")
                 return
             }
             if (inputLen != msgLength) {
