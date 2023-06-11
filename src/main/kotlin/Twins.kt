@@ -164,6 +164,7 @@ class ActimetreShort(
     @Required var sensorStr         : String = "",
     @Required var frequency         : Int = 0,
     @Required var rating            : Double = 1.0,
+    @Required var rssi              : Int = 0,
     @Required var repoSize          : Long = 0,
 ) {
     fun init(a: Actimetre): ActimetreShort {
@@ -179,6 +180,7 @@ class ActimetreShort(
         sensorStr = a.sensorStr()
         frequency = a.frequency
         rating = a.rating
+        rssi = a.rssi
         repoSize = a.repoSize
         return this
     }
@@ -207,6 +209,7 @@ class Actimetre(
     private var missingPoints  = 0
     private var totalPoints = 0
     var rating = 0.0
+    var rssi: Int = 0
     var repoSize: Long = 0
 
     @OptIn(ExperimentalUnsignedTypes::class)
@@ -244,6 +247,8 @@ class Actimetre(
                 }
                 frequency = Frequencies[msgFrequency]
                 cycleNanoseconds = 1_000_000_000L / frequency
+
+                rssi = (sensorData[3].toInt() shr 5) and 0x07
 
                 if (lastMessage == TimeZero) {
                     totalPoints = 1

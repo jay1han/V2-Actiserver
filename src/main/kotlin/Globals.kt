@@ -5,7 +5,7 @@ import java.io.PrintWriter
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "235"
+const val VERSION_STRING = "240"
 
 var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
