@@ -1,11 +1,21 @@
+@file:OptIn(ExperimentalUnsignedTypes::class)
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
-import java.time.Duration
+import java.time.*
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "240"
+const val VERSION_STRING = "250"
 
 var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
@@ -25,6 +35,7 @@ var options = Options("")
 
 class Options(configFileName: String = "") {
     var test: Boolean = false
+    var isLocal: Boolean = false
 
     init {
         println("Loading options from '$configFileName'")
@@ -38,6 +49,7 @@ class Options(configFileName: String = "") {
                     val (key, value) = it.split("=").map { it.trim() }
                     when (key.lowercase()) {
                         "repo_root" -> REPO_ROOT = value
+                        "local_repo" -> isLocal = value.lowercase().toBoolean()
                         "central_host" -> CENTRAL_HOST = value
                         "max_repo_size" -> MAX_REPO_SIZE = value.replace("_", "").toInt()
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
@@ -137,3 +149,101 @@ fun printLog(message: String) {
 const val HEADER_LENGTH = 5
 const val DATA_LENGTH = 12
 const val INIT_LENGTH = 13
+
+var Registry = mutableMapOf<String, Int>()
+
+fun loadRegistry(registryText: String) {
+    Registry = Json.decodeFromString<MutableMap<String, Int>>(registryText)
+}
+
+fun String.fullName(): String {return "$REPO_ROOT/$this"}
+
+private val actiFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+private val prettyFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
+val TimeZero = ZonedDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneId.of("Z"))
+
+object DateTimeAsString: KSerializer<ZonedDateTime> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("ZonedDateTime", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: ZonedDateTime) {
+        encoder.encodeString(value.format(actiFormat))
+    }
+    override fun deserialize(decoder: Decoder): ZonedDateTime {
+        return ZonedDateTime.of(LocalDateTime.parse(decoder.decodeString(), actiFormat), ZoneId.of("Z"))
+    }
+}
+
+fun now(): ZonedDateTime {
+    return ZonedDateTime.now(Clock.systemUTC())
+}
+
+fun ZonedDateTime.prettyFormat(): String {
+    return this.format(prettyFormat)
+}
+
+fun Duration.printSec(): String {
+    return "${this.toSeconds().toString()}s"
+}
+
+fun ZonedDateTime.actiFormat(): String {
+    return this.format(actiFormat)
+}
+
+fun String.parseActiFormat(): ZonedDateTime {
+    return ZonedDateTime.of(LocalDateTime.parse(this, actiFormat), ZoneId.of("Z"))
+}
+
+fun String.parseFileDate(): ZonedDateTime {
+    return this.substring(13,27).parseActiFormat()
+}
+
+fun Long.printSize(): String {
+    if (this == 0L) return "0"
+    var unit = 1_000_000L
+    var unitStr = "MB"
+    var precision = 2
+    if (this > 1_000_000_000L) {
+        unit = 1_000_000_000L
+        unitStr = "GB"
+        if (this < 10_000_000_000L) precision = 1
+    } else {
+        if (this >= 100_000_000L) precision = 0
+        else if (this >= 10_000_000L) precision = 1
+        else precision = 2
+    }
+    val inUnits = this.toDouble() / unit.toDouble()
+    return "%.${precision}f$unitStr".format(inUnits)
+}
+
+fun UByteArray.getInt3At(index: Int): Long {
+    return (this[index].toLong() shl 16) or
+            (this[index + 1].toLong() shl 8) or
+            this[index + 2].toLong()
+}
+
+fun UByte.parseSensorBits(): String {
+    var sensorStr = ""
+    for (port in 0..1) {
+        var portStr = "%d".format(port + 1)
+        for (address in 0..1) {
+            val bitMask = 1 shl (port * 4 + address)
+            if ((this.toInt() and bitMask) != 0) {
+                portStr += "%c".format('A' + address)
+            }
+        }
+        if (portStr.length > 1) {
+            sensorStr += portStr
+        }
+    }
+    return sensorStr
+}
+
+fun String.cleanJson(): String {
+    return this
+        .replace(" ", "")
+        .replace("\\\"", "")
+        .replace("\"", "")
+        .replace("\\", "")
+        .replace("[]", "empty")
+        .replace("[", "[\n")
+        .replace("},", "},\n")
+}

@@ -75,7 +75,7 @@ class SensorInfo(
 
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId)}
 
-    private fun findDataFile(atDateTime: ZonedDateTime) {
+    private fun findDataFile(atDateTime: ZonedDateTime): Boolean {
         var lastRepoFile = ""
         var lastRepoSize = 0
         var lastRepoDate = TimeZero
@@ -99,6 +99,7 @@ class SensorInfo(
             || (Duration.between(lastRepoDate, atDateTime) > MAX_REPO_TIME)
             || (lastRepoSize > MAX_REPO_SIZE)) {
             newDataFile(atDateTime)
+            return true
         } else {
             fileName = lastRepoFile
             fileDate = lastRepoDate
@@ -108,6 +109,7 @@ class SensorInfo(
             fileHandle = BufferedWriter(FileWriter(file, true), 16384)
             printLog("Continue data file $lastRepoFile")
         }
+        return false
     }
 
     private fun newDataFile(atDateTime: ZonedDateTime) {
@@ -120,17 +122,19 @@ class SensorInfo(
         printLog("Start data file $fileName")
     }
 
-    fun writeData(record: Record): Int {
-        if (!this::fileHandle.isInitialized) findDataFile(record.dateTime)
+    fun writeData(record: Record): Pair<Boolean, Int> {
+        var newFile: Boolean = false
+        if (!this::fileHandle.isInitialized) newFile = findDataFile(record.dateTime)
         else if (fileSize > MAX_REPO_SIZE ||
             Duration.between(fileDate, record.dateTime) > MAX_REPO_TIME
         ) {
             fileHandle.close()
             newDataFile(record.dateTime)
+            newFile = true
         }
         fileHandle.append(record.textStr + "\n")
         fileSize += record.textStr.length + 1
-        return record.textStr.length + 1
+        return Pair(newFile, record.textStr.length + 1)
     }
 
     fun closeIfOpen() {
@@ -165,6 +169,7 @@ class ActimetreShort(
     @Required var frequency         : Int = 0,
     @Required var rating            : Double = 1.0,
     @Required var rssi              : Int = 0,
+    @Required var repoNums          : Int = 0,
     @Required var repoSize          : Long = 0,
 ) {
     fun init(a: Actimetre): ActimetreShort {
@@ -181,6 +186,7 @@ class ActimetreShort(
         frequency = a.frequency
         rating = a.rating
         rssi = a.rssi
+        repoNums = a.repoNums
         repoSize = a.repoSize
         return this
     }
@@ -210,6 +216,7 @@ class Actimetre(
     private var totalPoints = 0
     var rating = 0.0
     var rssi: Int = 0
+    var repoNums: Int = 0
     var repoSize: Long = 0
 
     @OptIn(ExperimentalUnsignedTypes::class)
@@ -256,6 +263,7 @@ class Actimetre(
 
                     Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
+                        repoNums ++
                     }
                 } else {
                     val cycles = Duration.between(lastMessage, msgDateTime)
@@ -281,11 +289,55 @@ class Actimetre(
                     )
                     if (!sensorList.containsKey(record.sensorId))
                         sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
-                    repoSize += sensorList[record.sensorId]!!.writeData(record)
+                    val (newFile, sizeWritten) = sensorList[record.sensorId]!!.writeData(record)
+                    repoSize += sizeWritten
+                    if (newFile) repoNums ++
+                    if (newFile or (repoSize % 100_000 < 64)) {
+                        htmlData()
+                    }
                     index += DATA_LENGTH
                 }
             }
         }
+    }
+
+    fun htmlData() {
+        var repoList: MutableMap<String, MutableList<String>> = mutableMapOf()
+        Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+            val fileDate = it.fileName.toString().parseFileDate().prettyFormat()
+            val sensorStr = it.fileName.toString().substring(10,12)
+            val fileSize = it.fileSize().printSize()
+            if (repoList.get(sensorStr) == null) repoList[sensorStr] = mutableListOf()
+            repoList[sensorStr]!!.add("""
+            <td>$fileDate</td><td>$fileSize</td>
+            <td><a href="/${it.fileName}">${it.fileName}</a></td>                
+            """.trimIndent())
+        }
+
+        val htmlFile = FileWriter("$REPO_ROOT/index%04d.html".format(actimId))
+        htmlFile.write("""
+            <html><head>
+            <style>
+            body {font-family:"Arial", "Helvetica", "Verdana", "Calibri", sans-serif; hyphens:manual;}
+            table,th,tr,td {border:1px solid black; padding:0.3em; margin:0; border-collapse:collapse; text-align:center;}
+            </style>
+            <title>${actimName()} data files</title></head><body>
+            <h1>${actimName()} data files</h1>
+            <p>Right-click a file name and choose "Download link" to retrieve the file</p>
+            <table><tr><th>Sensor</th><th>Date created</th><th>Size</th><th>File name</th></tr>
+        """.trimIndent())
+        for (sensor in repoList.keys.sorted()) {
+            val lines = repoList[sensor]!!.sorted()
+            htmlFile.write("<tr><td rowspan=${lines.size}>$sensor</td>\n")
+            htmlFile.write("${lines[0]}</tr>\n")
+            for (line in lines.slice(1..lines.size - 1)) {
+                htmlFile.write("<tr>$line</tr>\n")
+            }
+        }
+        htmlFile.write("""
+            </table></body></html>
+        """.trimIndent())
+        htmlFile.close()
     }
 
     fun dies() {
@@ -387,6 +439,7 @@ class ActiserverShort(
     @Required var version : String = "000",
     @Required var channel : Int = 0,
     @Required var ip: String = "0.0.0.0",
+    @Required var isLocal: Boolean = false,
     @Serializable(with = DateTimeAsString::class)
     @Required var lastReport : ZonedDateTime = TimeZero,
     @Serializable(with = ActimetreShortList::class)
@@ -398,6 +451,7 @@ class ActiserverShort(
         version = s.version
         channel = s.channel
         ip = s.ip
+        isLocal = s.isLocal
         lastReport = s.lastReport
         for (a in s.actimetreList.values) {
             a.lastReport = s.lastReport
@@ -413,6 +467,7 @@ class Actiserver(
     val version : String = "000",
     val channel : Int = 0,
     val ip      : String = "0.0.0.0",
+    val isLocal : Boolean = false,
 ) {
     var lastReport: ZonedDateTime = TimeZero
     var actimetreList = mutableMapOf<Int, Actimetre>()

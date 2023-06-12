@@ -23,13 +23,14 @@ fun main(args: Array<String>) {
 
         if (options.test) println("Test mode")
         println("REPO_ROOT = $REPO_ROOT. MAX_REPO_SIZE = $MAX_REPO_SIZE, MAX_REPO_TIME = $MAX_REPO_TIME")
+        if (options.isLocal) println("Repo is LOCAL")
         println("CENTRAL_HOST = $CENTRAL_HOST")
     } else {
         println("Unable to discover serverId, quitting")
         exitProcess(1)
     }
 
-    Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, myIp)
+    Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, myIp, options.isLocal)
     selfToCentral()
 
     val actiServer = ServerSocketChannel.open().apply {
