@@ -323,6 +323,7 @@ class Actimetre(
             </style>
             <title>${actimName()} data files</title></head><body>
             <h1>${actimName()} data files</h1>
+            <p>Files are locally stored on ${Self.serverName()}, IP=${Self.ip}</p>
             <p>Right-click a file name and choose "Download link" to retrieve the file</p>
             <table><tr><th>Sensor</th><th>Date created</th><th>Size</th><th>File name</th></tr>
         """.trimIndent())
@@ -493,5 +494,9 @@ class Actiserver(
         synchronized(this) {
             actimetreList.remove(actimId)
         }
+    }
+
+    fun serverName(): String {
+        return "Actis%03d".format(serverId)
     }
 }
