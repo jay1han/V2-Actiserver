@@ -136,6 +136,11 @@ val myIp: String = run {
     }
 }
 
+val localRepo: Boolean = run {
+    val df = "/usr/bin/df $REPO_ROOT".runCommand().lines()[1]
+    df.startsWith("/dev/")
+}
+
 lateinit var Self: Actiserver
 
 fun printLog(message: String) {

@@ -23,6 +23,7 @@ fun main(args: Array<String>) {
 
         if (options.test) println("Test mode")
         println("REPO_ROOT = $REPO_ROOT. MAX_REPO_SIZE = $MAX_REPO_SIZE, MAX_REPO_TIME = $MAX_REPO_TIME")
+        if (localRepo) options.isLocal = true
         if (options.isLocal) println("Repo is LOCAL")
         println("CENTRAL_HOST = $CENTRAL_HOST")
     } else {
