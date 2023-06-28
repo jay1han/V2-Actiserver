@@ -76,6 +76,8 @@ class SensorInfo(
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId)}
 
     private fun findDataFile(atDateTime: ZonedDateTime): Boolean {
+        diskCapa()
+
         var lastRepoFile = ""
         var lastRepoSize = 0
         var lastRepoDate = TimeZero
@@ -129,6 +131,7 @@ class SensorInfo(
             Duration.between(fileDate, record.dateTime) > MAX_REPO_TIME
         ) {
             fileHandle.close()
+            diskCapa()
             newDataFile(record.dateTime)
             newFile = true
         }
@@ -144,6 +147,7 @@ class SensorInfo(
             } catch (e: Throwable) {
                 printLog("Close file:$e")
             }
+            diskCapa()
         }
     }
 }
@@ -441,6 +445,8 @@ class ActiserverShort(
     @Required var channel : Int = 0,
     @Required var ip: String = "0.0.0.0",
     @Required var isLocal: Boolean = false,
+    @Required var diskSize: Long = 0,
+    @Required var diskFree: Long = 0,
     @Serializable(with = DateTimeAsString::class)
     @Required var lastReport : ZonedDateTime = TimeZero,
     @Serializable(with = ActimetreShortList::class)
@@ -453,6 +459,8 @@ class ActiserverShort(
         channel = s.channel
         ip = s.ip
         isLocal = s.isLocal
+        diskSize = s.diskSize
+        diskFree = s.diskFree
         lastReport = s.lastReport
         for (a in s.actimetreList.values) {
             a.lastReport = s.lastReport
@@ -470,12 +478,19 @@ class Actiserver(
     val ip      : String = "0.0.0.0",
     val isLocal : Boolean = false,
 ) {
+    var diskSize: Long = 0
+    var diskFree: Long = 0
     var lastReport: ZonedDateTime = TimeZero
     var actimetreList = mutableMapOf<Int, Actimetre>()
 
     fun toCentral(): ActiserverShort {
         lastReport = now()
         return ActiserverShort().init(this)
+    }
+
+    fun df(size:Long, free:Long) {
+        diskSize = size
+        diskFree = free
     }
 
     fun updateActimetre(actimId: Int, mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: UByte): Actimetre {

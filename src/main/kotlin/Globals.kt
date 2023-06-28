@@ -15,7 +15,7 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "250"
+const val VERSION_STRING = "255"
 
 var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
@@ -139,6 +139,13 @@ val myIp: String = run {
 val localRepo: Boolean = run {
     val df = "/usr/bin/df $REPO_ROOT".runCommand().lines()[1]
     df.startsWith("/dev/")
+}
+
+fun diskCapa() {
+    val df = "/usr/bin/df -B 1 $REPO_ROOT".runCommand().lines()[1].split("\\s".toRegex())
+    val size = df[1].toLong()
+    val free = df[3].toLong()
+    Self.df(size, free)
 }
 
 lateinit var Self: Actiserver
