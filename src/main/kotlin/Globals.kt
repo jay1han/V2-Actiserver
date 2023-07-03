@@ -8,14 +8,16 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
+import java.io.BufferedReader
 import java.io.File
+import java.io.FileReader
 import java.io.FileWriter
 import java.io.PrintWriter
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "255"
+const val VERSION_STRING = "256"
 
 var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
@@ -108,9 +110,21 @@ val eth:String = run {
     else ""
 }
 
-val myChannel: Int = "channel\\s+([0-9])+".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?:
-        "Current Frequency:.+Channel\\s+([0-9]+)".toRegex()
-            .find("/usr/sbin/iwlist $wlan channel".runCommand())?.groupValues?.get(1)?.toInt() ?: 0
+fun findChannel(filename: String): Int? {
+    try {
+        return "channel=([0-9]+)".toRegex()
+            .find(File(filename).readText())?.groupValues?.get(1)?.toInt()
+    } catch(e:Throwable) {return null}
+}
+
+val myChannel: Int =
+    "channel\\s+([0-9])+".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt()
+        ?: "Current Frequency:.+Channel\\s+([0-9]+)".toRegex()
+            .find("/usr/sbin/iwlist $wlan channel".runCommand())?.groupValues?.get(1)?.toInt()
+        ?: findChannel("/etc/hostapd/hostapd.conf")
+        ?: findChannel("/etc/hostapd.conf")
+        ?: 0
+
 val serverId: Int = "Actis([0-9]{3})".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?: 0
 val serverName = "Actis%03d".format(serverId)
 
