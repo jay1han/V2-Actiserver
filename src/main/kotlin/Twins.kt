@@ -108,7 +108,8 @@ class SensorInfo(
             fileSize = lastRepoSize
             val file = File(lastRepoFile.fullName())
             file.setWritable(true, false)
-            fileHandle = BufferedWriter(FileWriter(file, true), 16384)
+            fileHandle = BufferedWriter(FileWriter(file, true))
+            fileHandle.append("\n")
             printLog("Continue data file $lastRepoFile")
         }
         return false
@@ -120,7 +121,8 @@ class SensorInfo(
         fileSize = 0
         val file = File(fileName.fullName())
         file.setWritable(true, false)
-        fileHandle = BufferedWriter(FileWriter(file), 16384)
+        fileHandle = BufferedWriter(FileWriter(file))
+        fileHandle.append("\n")
         printLog("Start data file $fileName")
     }
 
