@@ -1,4 +1,5 @@
 
+import java.lang.Thread.sleep
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.ByteChannel
@@ -29,6 +30,11 @@ fun main(args: Array<String>) {
     } else {
         println("Unable to discover serverId, quitting")
         exitProcess(1)
+    }
+
+    while (! "/usr/bin/ntpstat".runCommand().contains("time correct")) {
+        println("Waiting NTP sync")
+        sleep(2)
     }
 
     Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, myIp, options.isLocal)

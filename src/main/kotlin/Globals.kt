@@ -17,7 +17,7 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "257"
+const val VERSION_STRING = "258"
 
 var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
