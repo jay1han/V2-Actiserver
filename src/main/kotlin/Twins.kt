@@ -30,9 +30,9 @@ class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootE
         ZoneId.of("Z"))
     private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
     private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
-    val textStr: String = dateTime.prettyFormat() +
-            ".%03d ".format(dateTime.nano / 1000000L) +
-            accelStr + " " + gyroStr
+    val textStr: String = dateTime.csvFormat() +
+            ".%03d,".format(dateTime.nano / 1000000L) +
+            accelStr + "," + gyroStr
 
     private fun makeInt(msb: UByte, lsb: UByte) : Int {
         var integer = msb.toInt() * 256 + lsb.toInt()
@@ -49,7 +49,7 @@ class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootE
             rawX / 8192.0f,
             rawY / 8192.0f,
             rawZ / 8192.0f
-        ).joinToString(separator = " ") { "%+7.4f".format(it) }
+        ).joinToString(separator = ",") { "%+07.4f".format(it) }
     }
 
     @OptIn(ExperimentalUnsignedTypes::class)
@@ -59,7 +59,7 @@ class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootE
         return arrayOf(
             rawX / 131.0f,
             rawY / 131.0f
-        ).joinToString(separator = " ") { "%+7.3f".format(it) }
+        ).joinToString(separator = ",") { "%+07.3f".format(it) }
     }
 }
 
@@ -83,7 +83,7 @@ class SensorInfo(
         var lastRepoDate = TimeZero
         Path(REPO_ROOT).forEachDirectoryEntry {
             val thisRepoFile = it.fileName.toString()
-            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14}\\.txt".toRegex().matches(thisRepoFile)) {
+            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14}\\.csv".toRegex().matches(thisRepoFile)) {
                 val thisRepoDate = thisRepoFile.parseFileDate()
                 if (sensorName() == thisRepoFile.substring(0, 12)) {
                     if (lastRepoFile == "" ||
@@ -116,7 +116,7 @@ class SensorInfo(
     }
 
     private fun newDataFile(atDateTime: ZonedDateTime) {
-        fileName = sensorName() + "_" + atDateTime.actiFormat() + ".txt"
+        fileName = sensorName() + "_" + atDateTime.actiFormat() + ".csv"
         fileDate = atDateTime
         fileSize = 0
         val file = File(fileName.fullName())

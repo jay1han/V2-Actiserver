@@ -8,16 +8,14 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
-import java.io.BufferedReader
 import java.io.File
-import java.io.FileReader
 import java.io.FileWriter
 import java.io.PrintWriter
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "258"
+const val VERSION_STRING = "260"
 
 var CENTRAL_HOST = "actimetre.fr"
 var HTTP_PORT = 80
@@ -156,7 +154,7 @@ val localRepo: Boolean = run {
 }
 
 fun diskCapa() {
-    val df = "/usr/bin/df -B 1 $REPO_ROOT".runCommand().lines()[1].split("\\s".toRegex())
+    val df = "/usr/bin/df -B 1 $REPO_ROOT".runCommand().lines()[1].split("\\s+".toRegex())
     val size = df[1].toLong()
     val free = df[3].toLong()
     Self.df(size, free)
@@ -186,6 +184,8 @@ fun String.fullName(): String {return "$REPO_ROOT/$this"}
 
 private val actiFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
 private val prettyFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
+private val csvFormat:    DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd,HH:mm:ss")
+
 val TimeZero = ZonedDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneId.of("Z"))
 
 object DateTimeAsString: KSerializer<ZonedDateTime> {
@@ -204,6 +204,10 @@ fun now(): ZonedDateTime {
 
 fun ZonedDateTime.prettyFormat(): String {
     return this.format(prettyFormat)
+}
+
+fun ZonedDateTime.csvFormat(): String {
+    return this.format(csvFormat)
 }
 
 fun Duration.printSec(): String {
