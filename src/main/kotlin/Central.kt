@@ -4,14 +4,24 @@ import kotlinx.serialization.json.Json
 import java.io.BufferedReader
 import java.io.DataOutputStream
 import java.io.InputStreamReader
+import java.net.HttpURLConnection
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
 fun sendHttpRequest(reqString: String, data: String = ""): String {
     printLog(reqString + if (data != "") "\ndata=${data.cleanJson()}" else "")
-    val centralURL = URL("HTTPS", CENTRAL_HOST, HTTPS_PORT, reqString)
+    var centralURL = URL("HTTP", CENTRAL_HOST, HTTP_PORT, reqString)
+    if (USE_HTTPS) {
+        centralURL = URL("HTTPS", CENTRAL_HOST, HTTPS_PORT, reqString + "&secret=$SECRET_KEY")
+    }
+
     try {
-        val connection = centralURL.openConnection() as HttpsURLConnection
+        val URLconnection = centralURL.openConnection()
+        var connection = URLconnection as HttpURLConnection
+        if (USE_HTTPS) {
+            connection = URLconnection as HttpsURLConnection
+        }
+
         connection.doInput = true
         if (data != "") {
             connection.requestMethod = "POST"

@@ -15,14 +15,16 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "261"
+const val VERSION_STRING = "263"
 
-var CENTRAL_HOST = "actimetre.fr"
+var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var HTTP_PORT = 80
 var HTTPS_PORT = 443
+var USE_HTTPS = true
 var ACTI_PORT = 2883
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
+var SECRET_KEY: String = "YouDontKnowThis"
 
 var REPO_ROOT = "/media/actimetre"
 const val LOG_FILE = "/etc/actimetre/server.log"
@@ -52,8 +54,10 @@ class Options(configFileName: String = "") {
                         "repo_root" -> REPO_ROOT = value
                         "local_repo" -> isLocal = value.lowercase().toBoolean()
                         "central_host" -> CENTRAL_HOST = value
+                        "use_https" -> USE_HTTPS = value.toBoolean()
                         "max_repo_size" -> MAX_REPO_SIZE = value.replace("_", "").toInt()
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
+                        "secret_key" -> SECRET_KEY = value
                         "options" -> for (c in value.toCharArray()) {
                             when (c) {
                                 't' -> test = true
