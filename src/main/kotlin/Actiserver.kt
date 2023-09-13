@@ -27,7 +27,8 @@ fun main(args: Array<String>) {
         if (localRepo) options.isLocal = true
         if (options.isLocal) println("Repo is LOCAL")
         println("CENTRAL_HOST = $CENTRAL_HOST " +
-                if (USE_HTTPS) "(HTTPS port $HTTPS_PORT)" else "(HTTP port $HTTP_PORT)")
+                if (USE_HTTPS) "(HTTPS)" else ""
+        )
     } else {
         println("Unable to discover serverId, quitting")
         exitProcess(1)

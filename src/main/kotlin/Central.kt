@@ -10,10 +10,13 @@ import javax.net.ssl.HttpsURLConnection
 
 fun sendHttpRequest(reqString: String, data: String = ""): String {
     printLog(reqString + if (data != "") "\ndata=${data.cleanJson()}" else "")
-    var centralURL = URL("HTTP", CENTRAL_HOST, HTTP_PORT, reqString)
+    var centralURL: URL
     if (USE_HTTPS) {
-        centralURL = URL("HTTPS", CENTRAL_HOST, HTTPS_PORT, reqString + "&secret=$SECRET_KEY")
+        centralURL = URL("https://$CENTRAL_HOST$reqString&secret=$SECRET_KEY")
+    } else {
+        centralURL = URL("http://$CENTRAL_HOST$reqString")
     }
+    printLog(centralURL.toString())
 
     try {
         val URLconnection = centralURL.openConnection()
@@ -39,7 +42,7 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
             input.close()
             responseText
         } else ""
-        printLog("Response=${response.trim().cleanJson()}")
+        printLog("Response[$responseCode]:${response.trim()}")
         return response
     } catch(e: Throwable) {
         printLog("httpRequest:$e")

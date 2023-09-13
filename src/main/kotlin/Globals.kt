@@ -15,11 +15,9 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "263"
+const val VERSION_STRING = "264"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
-var HTTP_PORT = 80
-var HTTPS_PORT = 443
 var USE_HTTPS = true
 var ACTI_PORT = 2883
 var MAX_REPO_SIZE = 1_000_000_000
