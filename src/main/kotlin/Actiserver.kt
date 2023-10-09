@@ -17,7 +17,7 @@ fun main(args: Array<String>) {
     if (args.count() > 1) options = Options(args[1])
 
     println("Actiserver v$VERSION_STRING on $myMachine")
-    println("$serverName at $myIp device $wlan on channel $myChannel as $serverAddress")
+    println("$serverName wired IP=$myIp, wireless $wlan channel $myChannel IP=$serverAddress")
 
     if (serverId > 0 && myIp != "") {
         printLog("$serverName started")
