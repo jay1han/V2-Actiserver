@@ -19,7 +19,7 @@ fun main(args: Array<String>) {
     println("Actiserver v$VERSION_STRING on $myMachine")
     println("$serverName at $myIp device $wlan on channel $myChannel as $serverAddress")
 
-    if (serverId > 0) {
+    if (serverId > 0 && myIp != "") {
         printLog("$serverName started")
 
         if (options.test) println("Test mode")
@@ -30,7 +30,7 @@ fun main(args: Array<String>) {
                 if (USE_HTTPS) "(HTTPS)" else ""
         )
     } else {
-        println("Unable to discover serverId, quitting")
+        println("Unable to detect serverId or wired IP, quitting")
         exitProcess(1)
     }
 

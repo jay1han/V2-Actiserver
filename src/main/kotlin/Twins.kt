@@ -20,7 +20,6 @@ import kotlin.io.path.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
 
-@OptIn(ExperimentalUnsignedTypes::class)
 class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Int) {
     private val diffMillis = buffer[0].toInt() * 256 + buffer[1].toInt()
     private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
@@ -127,7 +126,7 @@ class SensorInfo(
     }
 
     fun writeData(record: Record): Pair<Boolean, Int> {
-        var newFile: Boolean = false
+        var newFile = false
         if (!this::fileHandle.isInitialized) newFile = findDataFile(record.dateTime)
         else if (fileSize > MAX_REPO_SIZE ||
             Duration.between(fileDate, record.dateTime) > MAX_REPO_TIME
@@ -308,7 +307,7 @@ class Actimetre(
     }
 
     fun htmlData() {
-        var repoList: MutableMap<String, MutableList<String>> = mutableMapOf()
+        val repoList: MutableMap<String, MutableList<String>> = mutableMapOf()
         Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
             val fileDate = it.fileName.toString().parseFileDate().prettyFormat()
             val sensorStr = it.fileName.toString().substring(10,12)
