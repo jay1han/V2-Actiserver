@@ -17,9 +17,9 @@ fun main(args: Array<String>) {
     if (args.count() > 1) options = Options(args[1])
 
     println("Actiserver v$VERSION_STRING on $myMachine")
-    println("$serverName wired IP=$myIp, wireless $wlan channel $myChannel IP=$serverAddress")
+    println("$serverName WAN IP=$myIp, server $myIfname channel $myChannel IP=$serverAddress")
 
-    if (serverId > 0 && myIp != "") {
+    if (netConfigOK == "") {
         printLog("$serverName started")
 
         if (options.test) println("Test mode")
@@ -30,13 +30,13 @@ fun main(args: Array<String>) {
                 if (USE_HTTPS) "(HTTPS)" else ""
         )
     } else {
-        println("Unable to detect serverId or wired IP, quitting")
+        println(netConfigOK)
         exitProcess(1)
     }
 
     while (! "/usr/bin/ntpstat".runCommand().contains("time correct")) {
         println("Waiting NTP sync")
-        sleep(2)
+        sleep(1000)
     }
 
     Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, myIp, options.isLocal)

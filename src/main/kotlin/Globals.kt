@@ -15,7 +15,7 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "265"
+const val VERSION_STRING = "270"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -94,62 +94,57 @@ val myMachine = run {
     }
 }
 
-val ifconfig = "/usr/sbin/ifconfig -a".runCommand()
+val ifconfig = "/usr/sbin/ifconfig -s".runCommand()
+var serverId = 0
+var serverName = ""
+var serverAddress = ""
+var myIp = ""
+var myIfname = ""
+var myChannel = 0
 
-val wlan:String = run {
-    val regex = "^(w[^:]+).+RUNNING".toRegex(RegexOption.MULTILINE)
-    val ifMatch = regex.find(ifconfig)
-    if (ifMatch != null) ifMatch.groupValues[1]
-    else ""
-}
-val iw_wlan = "/usr/sbin/iw dev $wlan info".runCommand()
-
-val eth:String = run {
-    val regex = "^(e[^:]+)".toRegex(RegexOption.MULTILINE)
-    val ifMatch = regex.find(ifconfig)
-    if (ifMatch != null) ifMatch.groupValues[1]
-    else ""
+fun findConfig(re: String, where: String): String? {
+    return re.toRegex(RegexOption.MULTILINE).find(where)?.groupValues?.get(1)
 }
 
-fun findChannel(filename: String): Int? {
+fun findChannel(filename: String): String? {
     try {
-        return "channel=([0-9]+)".toRegex()
-            .find(File(filename).readText())?.groupValues?.get(1)?.toInt()
+        return findConfig("channel=([0-9]+)", File(filename).readText())
     } catch(e:Throwable) {return null}
 }
 
-val myChannel: Int =
-    "channel\\s+([0-9])+".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt()
-        ?: "Current Frequency:.+Channel\\s+([0-9]+)".toRegex()
-            .find("/usr/sbin/iwlist $wlan channel".runCommand())?.groupValues?.get(1)?.toInt()
-        ?: findChannel("/etc/hostapd/hostapd.conf")
-        ?: findChannel("/etc/hostapd.conf")
-        ?: 0
-
-val serverId: Int = "Actis([0-9]{3})".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?: 0
-val serverName = "Actis%03d".format(serverId)
-
-val serverAddress: String = run {
-    if (wlan == "") "192.168.4.1"
-    else {
-        val config = "/usr/sbin/ifconfig $wlan".runCommand()
-        val regex = "inet\\s+([0-9.]+)".toRegex()
-        val ipMatch = regex.find(config)
-        if (ipMatch != null) ipMatch.groupValues[1]
-        else "192.168.4.1"
+val netConfigOK: String = run {
+    for(net in ifconfig.lines()) {
+        val ifname = findConfig("(\\w+)", net)
+        if (ifname != null) {
+            val config = "/usr/sbin/ifconfig $ifname".runCommand()
+            if (ifname[0] == 'w') {
+                val iw = "/usr/sbin/iw dev $ifname info".runCommand()
+                val type = findConfig("type (\\w+)", iw) ?: ""
+                if (type == "AP") {
+                    myIfname = ifname
+                    myChannel = (
+                            findConfig("channel ([0-9]+)", iw) ?: findChannel("/etc/hostapd/hostapd.conf")
+                            ?: findChannel("/etc/hostapd.conf") ?: "0"
+                            ).toInt()
+                    serverName = findConfig("ssid (Actis[0-9]+)", iw) ?: ""
+                    serverId = findConfig("Actis([0-9]{3})", serverName)?.toInt() ?: 0
+                    serverAddress = findConfig("inet\\s+([0-9.]+)", config) ?: ""
+                } else if (type == "managed") {
+                    myIp = findConfig("inet ([.0-9]+)", config) ?: myIp
+                }
+            } else if (ifname[0] == 'e') {
+                myIp = findConfig("inet ([.0-9]+)", config) ?: myIp
+            }
+        }
     }
+
+    var errors = ""
+    if (serverAddress == "") errors += "I don't know my gateway IP\n"
+    if (serverId == 0) errors += "I don't know my Actiserver ID\n"
+
+    errors
 }
 
-val myIp: String = run {
-    if (eth == "") ""
-    else {
-        val config = "/usr/sbin/ifconfig $eth".runCommand()
-        val regex = "inet\\s+([0-9.]+)".toRegex()
-        val ipMatch = regex.find(config)
-        if (ipMatch != null) ipMatch.groupValues[1]
-        else ""
-    }
-}
 
 val localRepo: Boolean = run {
     val df = "/usr/bin/df $REPO_ROOT".runCommand().lines()[1]
