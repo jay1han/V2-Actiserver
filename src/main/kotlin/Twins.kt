@@ -453,6 +453,8 @@ class ActiserverShort(
     @Serializable(with = ActimetreShortList::class)
     @Required var actimetreList: Map<Int, ActimetreShort> = mapOf(),
 ) {
+    @Required val isDown: Int = 0
+
     fun init(s: Actiserver) : ActiserverShort {
         serverId = s.serverId
         machine = s.machine
