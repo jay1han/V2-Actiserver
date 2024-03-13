@@ -21,14 +21,18 @@ import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
 
 class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Int) {
-    private val diffMillis = buffer[0].toInt() * 256 + buffer[1].toInt()
-    private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
+//    private val diffMillis = buffer[0].toInt() * 256 + buffer[1].toInt()
+//    private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
+    private val diffMillis = 0
+    private val adjEpoch = 0
     val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
         Instant.ofEpochSecond((msgBootEpoch + bootEpoch + adjEpoch),
             ((msgMillis + diffMillis) % 1000).toLong() * 1_000_000L),
         ZoneId.of("Z"))
-    private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
-    private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
+//    private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
+//    private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
+    private val accelStr = makeAccelStr(buffer.sliceArray(0..5))
+    private val gyroStr = makeGyroStr(buffer.sliceArray(6..9))
     val textStr: String = dateTime.csvFormat() +
             ".%03d,".format(dateTime.nano / 1000000L) +
             accelStr + "," + gyroStr
@@ -290,7 +294,7 @@ class Actimetre(
                 while (index < msgLength) {
                     val record = Record(
                         sensorData.sliceArray(index until (index + DATA_LENGTH)),
-                        sensorOrder[index / DATA_LENGTH], bootEpoch, msgBootEpoch, msgMillis
+                        sensorOrder[(index - HEADER_LENGTH) / DATA_LENGTH], bootEpoch, msgBootEpoch, msgMillis
                     )
                     if (!sensorList.containsKey(record.sensorId))
                         sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)

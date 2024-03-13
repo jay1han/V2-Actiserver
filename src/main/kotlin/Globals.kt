@@ -15,7 +15,7 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "265"
+const val VERSION_STRING = "300"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -174,7 +174,8 @@ fun printLog(message: String) {
 }
 
 const val HEADER_LENGTH = 5
-const val DATA_LENGTH = 12
+//const val DATA_LENGTH = 12
+const val DATA_LENGTH = 10
 const val INIT_LENGTH = 13
 
 var Registry = mutableMapOf<String, Int>()
