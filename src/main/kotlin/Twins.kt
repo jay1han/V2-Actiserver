@@ -157,8 +157,8 @@ class SensorInfo(
     }
 }
 
-val Frequencies = listOf(50, 100, 1, 200, 30, 10)
-const val FREQ_COUNT = 6
+val Frequencies = listOf(50, 100, 1, 200, 30, 10, 500, 1000)
+const val FREQ_COUNT = 8
 
 @Serializable
 class ActimetreShort(
@@ -218,7 +218,7 @@ class Actimetre(
     private var msgLength = 0
     private var sensorOrder = mutableListOf<String>()
     private var bootEpoch = 0L
-    var frequency = 50
+    var frequency = 100
     private var cycleNanoseconds = 1_000_000_000L / frequency
     private var lastMessage = TimeZero
     private var missingPoints  = 0
