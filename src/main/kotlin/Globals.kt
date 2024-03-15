@@ -112,7 +112,8 @@ fun Init() {
     }
 
     for (net in "/usr/sbin/ifconfig -s".runCommand().lines()) {
-        val ifname = net.split(" ")[0]
+        val ifname = net.split("\\s".toRegex(), limit = 1)[0]
+        if (ifname == "") continue
         when (ifname[0]) {
             'e' -> {
                 myIp = getInet(ifname)
