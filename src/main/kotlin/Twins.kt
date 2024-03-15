@@ -157,8 +157,8 @@ class SensorInfo(
     }
 }
 
-val Frequencies = listOf(50, 100, 1, 200, 30, 10, 500, 1000)
-const val FREQ_COUNT = 8
+val Frequencies = listOf(50, 100, 1, 200, 30, 10)
+val FrequenciesV3 = listOf(100, 200, 500, 1000, 2000, 4000, 8000)
 
 @Serializable
 class ActimetreShort(
@@ -257,11 +257,11 @@ class Actimetre(
                 )
 
                 var msgFrequency = (sensorData[3].toInt() shr 2) and 0x07
-                if (msgFrequency >= FREQ_COUNT) {
-                    printLog("Unknown frequency code $msgFrequency, revert to base")
-                    msgFrequency = 0
+                if (version >= "300") {
+                    frequency = FrequenciesV3[msgFrequency]
+                } else {
+                    frequency = Frequencies[msgFrequency]
                 }
-                frequency = Frequencies[msgFrequency]
                 cycleNanoseconds = 1_000_000_000L / frequency
 
                 rssi = (sensorData[3].toInt() shr 5) and 0x07

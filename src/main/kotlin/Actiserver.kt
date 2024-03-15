@@ -14,6 +14,7 @@ import kotlin.io.path.forEachDirectoryEntry
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
+    Init()
     if (args.count() > 1) options = Options(args[1])
 
     println("Actiserver v$VERSION_STRING on $myMachine")

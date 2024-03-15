@@ -82,33 +82,65 @@ fun String.runCommand(): String {
     }
 }
 
-val myMachine = run {
-    val inxi = "/usr/bin/inxi -M -c 0".runCommand()
-    val regex = "System:\\s+([^:]+)".toRegex()
-    val machine = regex.find(inxi)
-    if (machine != null) {
-        val words = machine.groupValues[1].split(" ")
-        words.subList(0, words.size - 1).joinToString(separator=" ")
-    } else {
-        "Unknown"
+var myMachine: String = ""
+var myChannel = 0
+var serverId = 0
+var serverName = ""
+var serverAddress = ""
+var myIp = ""
+var wlan = ""
+
+fun Init() {
+    myMachine = run {
+        val inxi = "/usr/bin/inxi -M -c 0".runCommand()
+        val regex = "System:\\s+([^:]+)".toRegex()
+        val machine = regex.find(inxi)
+        if (machine != null) {
+            val words = machine.groupValues[1].split(" ")
+            words.subList(0, words.size - 1).joinToString(separator = " ")
+        } else {
+            "Unknown"
+        }
     }
-}
 
-val ifconfig = "/usr/sbin/ifconfig -a".runCommand()
+    fun getInet(ifname: String): String {
+        val config = "/usr/sbin/ifconfig $ifname".runCommand()
+        val regex = "inet\\s+([0-9.]+)".toRegex()
+        val ipMatch = regex.find(config)
+        if (ipMatch != null) return ipMatch.groupValues[1]
+        else return ""
+    }
 
-val wlan:String = run {
-    val regex = "^(w[^:]+).+RUNNING".toRegex(RegexOption.MULTILINE)
-    val ifMatch = regex.find(ifconfig)
-    if (ifMatch != null) ifMatch.groupValues[1]
-    else ""
-}
-val iw_wlan = "/usr/sbin/iw dev $wlan info".runCommand()
+    for (net in "/usr/sbin/ifconfig -s".runCommand().lines()) {
+        val ifname = net.split(" ")[0]
+        when (ifname[0]) {
+            'e' -> {
+                myIp = getInet(ifname)
+            }
 
-val eth:String = run {
-    val regex = "^(e[^:]+)".toRegex(RegexOption.MULTILINE)
-    val ifMatch = regex.find(ifconfig)
-    if (ifMatch != null) ifMatch.groupValues[1]
-    else ""
+            'w' -> {
+                val iw = "/usr/sbin/iw $ifname info".runCommand()
+                if ("type AP".toRegex().find(iw) != null) {
+                    wlan = ifname
+                    serverId = "Actis([0-9]{3})".toRegex().find(iw)?.groupValues?.get(1)?.toInt() ?: 0
+                    if (serverId > 0) serverName = "Actis%03d".format(serverId)
+                    serverAddress = "inet ([0-9.]+)".toRegex()
+                        .find("/usr/sbin/ifconfig $ifname".runCommand())?.groupValues?.get(1)
+                        ?: "?"
+                    myChannel = "channel\\s+([0-9])+".toRegex().find(iw)?.groupValues?.get(1)?.toInt()
+                        ?: "Current Frequency:.+Channel\\s+([0-9]+)".toRegex()
+                            .find("/usr/sbin/iwlist $wlan channel".runCommand())?.groupValues?.get(1)?.toInt()
+                                ?: findChannel("/etc/hostapd/hostapd.conf")
+                                ?: findChannel("/etc/hostapd.conf")
+                                ?: 0
+                } else {
+                    if (myIp == "") {
+                        myIp = getInet(ifname)
+                    }
+                }
+            }
+        }
+    }
 }
 
 fun findChannel(filename: String): Int? {
@@ -116,39 +148,6 @@ fun findChannel(filename: String): Int? {
         return "channel=([0-9]+)".toRegex()
             .find(File(filename).readText())?.groupValues?.get(1)?.toInt()
     } catch(e:Throwable) {return null}
-}
-
-val myChannel: Int =
-    "channel\\s+([0-9])+".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt()
-        ?: "Current Frequency:.+Channel\\s+([0-9]+)".toRegex()
-            .find("/usr/sbin/iwlist $wlan channel".runCommand())?.groupValues?.get(1)?.toInt()
-        ?: findChannel("/etc/hostapd/hostapd.conf")
-        ?: findChannel("/etc/hostapd.conf")
-        ?: 0
-
-val serverId: Int = "Actis([0-9]{3})".toRegex().find(iw_wlan)?.groupValues?.get(1)?.toInt() ?: 0
-val serverName = "Actis%03d".format(serverId)
-
-val serverAddress: String = run {
-    if (wlan == "") "192.168.4.1"
-    else {
-        val config = "/usr/sbin/ifconfig $wlan".runCommand()
-        val regex = "inet\\s+([0-9.]+)".toRegex()
-        val ipMatch = regex.find(config)
-        if (ipMatch != null) ipMatch.groupValues[1]
-        else "192.168.4.1"
-    }
-}
-
-val myIp: String = run {
-    if (eth == "") ""
-    else {
-        val config = "/usr/sbin/ifconfig $eth".runCommand()
-        val regex = "inet\\s+([0-9.]+)".toRegex()
-        val ipMatch = regex.find(config)
-        if (ipMatch != null) ipMatch.groupValues[1]
-        else ""
-    }
 }
 
 val localRepo: Boolean = run {
