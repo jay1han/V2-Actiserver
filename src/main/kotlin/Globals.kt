@@ -15,7 +15,7 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-const val VERSION_STRING = "280"
+const val VERSION_STRING = "300"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -33,6 +33,25 @@ const val ACTIS_CHECK_SECS = 15L
 const val LOG_SIZE = 1_000_000
 
 var options = Options("")
+
+fun String.runCommand(): String {
+    return try {
+        val parts = this.split(" ")
+        val process = ProcessBuilder(*parts.toTypedArray()).start()
+        process.waitFor(5, TimeUnit.SECONDS)
+        process.inputStream.bufferedReader().readText()
+    } catch(e: Throwable) {
+        ""
+    }
+}
+
+var myMachine: String = ""
+var myChannel = 0
+var serverId = 0
+var serverName = ""
+var serverAddress = ""
+var myIp = ""
+var wlan = ""
 
 class Options(configFileName: String = "") {
     var test: Boolean = false
@@ -71,80 +90,68 @@ class Options(configFileName: String = "") {
     }
 }
 
-fun String.runCommand(): String {
-    return try {
-        val parts = this.split(" ")
-        val process = ProcessBuilder(*parts.toTypedArray()).start()
-        process.waitFor(5, TimeUnit.SECONDS)
-        process.inputStream.bufferedReader().readText()
-    } catch(e: Throwable) {
-        ""
-    }
-}
-
-val myMachine = run {
-    val inxi = "/usr/bin/inxi -M -c 0".runCommand()
-    val regex = "System:\\s+([^:]+)".toRegex()
-    val machine = regex.find(inxi)
-    if (machine != null) {
-        val words = machine.groupValues[1].split(" ")
-        words.subList(0, words.size - 1).joinToString(separator=" ")
-    } else {
-        "Unknown"
-    }
-}
-
-val ifconfig = "/usr/sbin/ifconfig -s".runCommand()
-var serverId = 0
-var serverName = ""
-var serverAddress = ""
-var myIp = ""
-var myIfname = ""
-var myChannel = 0
-
-fun findConfig(re: String, where: String): String? {
-    return re.toRegex(RegexOption.MULTILINE).find(where)?.groupValues?.get(1)
-}
-
-fun findChannel(filename: String): String? {
-    try {
-        return findConfig("channel=([0-9]+)", File(filename).readText())
-    } catch(e:Throwable) {return null}
-}
-
-val netConfigOK: String = run {
-    for(net in ifconfig.lines()) {
-        val ifname = findConfig("(\\w+)", net)
-        if (ifname != null) {
-            val config = "/usr/sbin/ifconfig $ifname".runCommand()
-            if (ifname[0] == 'w') {
-                val iw = "/usr/sbin/iw dev $ifname info".runCommand()
-                val type = findConfig("type (\\w+)", iw) ?: ""
-                if (type == "AP") {
-                    myIfname = ifname
-                    myChannel = (
-                            findConfig("channel ([0-9]+)", iw) ?: findChannel("/etc/hostapd/hostapd.conf")
-                            ?: findChannel("/etc/hostapd.conf") ?: "0"
-                            ).toInt()
-                    serverName = findConfig("ssid (Actis[0-9]+)", iw) ?: ""
-                    serverId = findConfig("Actis([0-9]{3})", serverName)?.toInt() ?: 0
-                    serverAddress = findConfig("inet\\s+([0-9.]+)", config) ?: ""
-                } else if (type == "managed") {
-                    myIp = findConfig("inet ([.0-9]+)", config) ?: myIp
-                }
-            } else if (ifname[0] == 'e') {
-                myIp = findConfig("inet ([.0-9]+)", config) ?: myIp
-            }
+fun Init() {
+    myMachine = run {
+        val inxi = "/usr/bin/inxi -M -c 0".runCommand()
+        val regex = "System:\\s+([^:]+)".toRegex()
+        val machine = regex.find(inxi)
+        if (machine != null) {
+            val words = machine.groupValues[1].split(" ")
+            words.subList(0, words.size - 1).joinToString(separator = " ")
+        } else {
+            "Unknown"
         }
     }
 
-    var errors = ""
-    if (serverAddress == "") errors += "I don't know my gateway IP\n"
-    if (serverId == 0) errors += "I don't know my Actiserver ID\n"
+    fun getInet(ifname: String): String {
+        val config = "/usr/sbin/ifconfig $ifname".runCommand()
+        val regex = "inet\\s+([0-9.]+)".toRegex()
+        val ipMatch = regex.find(config)
+        if (ipMatch != null) return ipMatch.groupValues[1]
+        else return ""
+    }
 
-    errors
+    fun findChannel(filename: String): Int? {
+        try {
+            return "channel=([0-9]+)".toRegex()
+                .find(File(filename).readText())?.groupValues?.get(1)?.toInt()
+        } catch (e: Throwable) {
+            return null
+        }
+    }
+
+    for (net in "/usr/sbin/ifconfig -s".runCommand().lines()) {
+        if (net == "") continue
+        val ifname = net.split("\\s".toRegex())[0]
+        when (ifname[0]) {
+            'e' -> {
+                myIp = getInet(ifname)
+            }
+
+            'w' -> {
+                val iw = "/usr/sbin/iw $ifname info".runCommand()
+                if ("type AP".toRegex().find(iw) != null) {
+                    wlan = ifname
+                    serverId = "Actis([0-9]{3})".toRegex().find(iw)?.groupValues?.get(1)?.toInt() ?: 0
+                    if (serverId > 0) serverName = "Actis%03d".format(serverId)
+                    serverAddress = "inet ([0-9.]+)".toRegex()
+                        .find("/usr/sbin/ifconfig $ifname".runCommand())?.groupValues?.get(1)
+                        ?: "?"
+                    myChannel = "channel\\s+([0-9])+".toRegex().find(iw)?.groupValues?.get(1)?.toInt()
+                        ?: "Current Frequency:.+Channel\\s+([0-9]+)".toRegex()
+                            .find("/usr/sbin/iwlist $wlan channel".runCommand())?.groupValues?.get(1)?.toInt()
+                                ?: findChannel("/etc/hostapd/hostapd.conf")
+                                ?: findChannel("/etc/hostapd.conf")
+                                ?: 0
+                } else {
+                    if (myIp == "") {
+                        myIp = getInet(ifname)
+                    }
+                }
+            }
+        }
+    }
 }
-
 
 val localRepo: Boolean = run {
     val df = "/usr/bin/df $REPO_ROOT".runCommand().lines()[1]
@@ -169,7 +176,8 @@ fun printLog(message: String) {
 }
 
 const val HEADER_LENGTH = 5
-const val DATA_LENGTH = 12
+//const val DATA_LENGTH = 12
+const val DATA_LENGTH = 10
 const val INIT_LENGTH = 13
 
 var Registry = mutableMapOf<String, Int>()

@@ -21,14 +21,18 @@ import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
 
 class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Int) {
-    private val diffMillis = buffer[0].toInt() * 256 + buffer[1].toInt()
-    private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
+//    private val diffMillis = buffer[0].toInt() * 256 + buffer[1].toInt()
+//    private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
+    private val diffMillis = 0
+    private val adjEpoch = 0
     val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
         Instant.ofEpochSecond((msgBootEpoch + bootEpoch + adjEpoch),
             ((msgMillis + diffMillis) % 1000).toLong() * 1_000_000L),
         ZoneId.of("Z"))
-    private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
-    private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
+//    private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
+//    private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
+    private val accelStr = makeAccelStr(buffer.sliceArray(0..5))
+    private val gyroStr = makeGyroStr(buffer.sliceArray(6..9))
     val textStr: String = dateTime.csvFormat() +
             ".%03d,".format(dateTime.nano / 1000000L) +
             accelStr + "," + gyroStr
@@ -154,7 +158,7 @@ class SensorInfo(
 }
 
 val Frequencies = listOf(50, 100, 1, 200, 30, 10)
-const val FREQ_COUNT = 6
+val FrequenciesV3 = listOf(100, 500, 1000, 2000, 4000, 8000)
 
 @Serializable
 class ActimetreShort(
@@ -214,7 +218,7 @@ class Actimetre(
     private var msgLength = 0
     private var sensorOrder = mutableListOf<String>()
     private var bootEpoch = 0L
-    var frequency = 50
+    var frequency = 100
     private var cycleNanoseconds = 1_000_000_000L / frequency
     private var lastMessage = TimeZero
     private var missingPoints  = 0
@@ -252,12 +256,12 @@ class Actimetre(
                     ZoneId.of("Z")
                 )
 
-                var msgFrequency = (sensorData[3].toInt() shr 2) and 0x07
-                if (msgFrequency >= FREQ_COUNT) {
-                    printLog("Unknown frequency code $msgFrequency, revert to base")
-                    msgFrequency = 0
+                val msgFrequency = (sensorData[3].toInt() shr 2) and 0x07
+                if (version >= "300") {
+                    frequency = FrequenciesV3[msgFrequency]
+                } else {
+                    frequency = Frequencies[msgFrequency]
                 }
-                frequency = Frequencies[msgFrequency]
                 cycleNanoseconds = 1_000_000_000L / frequency
 
                 rssi = (sensorData[3].toInt() shr 5) and 0x07
@@ -290,7 +294,7 @@ class Actimetre(
                 while (index < msgLength) {
                     val record = Record(
                         sensorData.sliceArray(index until (index + DATA_LENGTH)),
-                        sensorOrder[index / DATA_LENGTH], bootEpoch, msgBootEpoch, msgMillis
+                        sensorOrder[(index - HEADER_LENGTH) / DATA_LENGTH], bootEpoch, msgBootEpoch, msgMillis
                     )
                     if (!sensorList.containsKey(record.sensorId))
                         sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
