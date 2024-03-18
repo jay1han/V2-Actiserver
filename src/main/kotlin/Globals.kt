@@ -51,7 +51,8 @@ var serverId = 0
 var serverName = ""
 var serverAddress = ""
 var myIp = ""
-var wlan = ""
+var myIfname = ""
+var netConfigOK = ""
 
 class Options(configFileName: String = "") {
     var test: Boolean = false
@@ -131,7 +132,7 @@ fun Init() {
             'w' -> {
                 val iw = "/usr/sbin/iw $ifname info".runCommand()
                 if ("type AP".toRegex().find(iw) != null) {
-                    wlan = ifname
+                    myIfname = ifname
                     serverId = "Actis([0-9]{3})".toRegex().find(iw)?.groupValues?.get(1)?.toInt() ?: 0
                     if (serverId > 0) serverName = "Actis%03d".format(serverId)
                     serverAddress = "inet ([0-9.]+)".toRegex()
@@ -139,7 +140,7 @@ fun Init() {
                         ?: "?"
                     myChannel = "channel\\s+([0-9])+".toRegex().find(iw)?.groupValues?.get(1)?.toInt()
                         ?: "Current Frequency:.+Channel\\s+([0-9]+)".toRegex()
-                            .find("/usr/sbin/iwlist $wlan channel".runCommand())?.groupValues?.get(1)?.toInt()
+                            .find("/usr/sbin/iwlist $myIfname channel".runCommand())?.groupValues?.get(1)?.toInt()
                                 ?: findChannel("/etc/hostapd/hostapd.conf")
                                 ?: findChannel("/etc/hostapd.conf")
                                 ?: 0
@@ -151,6 +152,10 @@ fun Init() {
             }
         }
     }
+
+    if (myIfname == "") netConfigOK += "Can't find AP interface\n"
+    if (myIp == "") netConfigOK += "Can't find my IP\n"
+    if (serverId == 0) netConfigOK += "Can't find my server ID\n"
 }
 
 val localRepo: Boolean = run {
