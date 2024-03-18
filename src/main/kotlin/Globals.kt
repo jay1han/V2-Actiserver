@@ -34,6 +34,25 @@ const val LOG_SIZE = 1_000_000
 
 var options = Options("")
 
+fun String.runCommand(): String {
+    return try {
+        val parts = this.split(" ")
+        val process = ProcessBuilder(*parts.toTypedArray()).start()
+        process.waitFor(5, TimeUnit.SECONDS)
+        process.inputStream.bufferedReader().readText()
+    } catch(e: Throwable) {
+        ""
+    }
+}
+
+var myMachine: String = ""
+var myChannel = 0
+var serverId = 0
+var serverName = ""
+var serverAddress = ""
+var myIp = ""
+var wlan = ""
+
 class Options(configFileName: String = "") {
     var test: Boolean = false
     var isLocal: Boolean = false
@@ -71,25 +90,6 @@ class Options(configFileName: String = "") {
     }
 }
 
-fun String.runCommand(): String {
-    return try {
-        val parts = this.split(" ")
-        val process = ProcessBuilder(*parts.toTypedArray()).start()
-        process.waitFor(5, TimeUnit.SECONDS)
-        process.inputStream.bufferedReader().readText()
-    } catch(e: Throwable) {
-        ""
-    }
-}
-
-var myMachine: String = ""
-var myChannel = 0
-var serverId = 0
-var serverName = ""
-var serverAddress = ""
-var myIp = ""
-var wlan = ""
-
 fun Init() {
     myMachine = run {
         val inxi = "/usr/bin/inxi -M -c 0".runCommand()
@@ -111,9 +111,18 @@ fun Init() {
         else return ""
     }
 
+    fun findChannel(filename: String): Int? {
+        try {
+            return "channel=([0-9]+)".toRegex()
+                .find(File(filename).readText())?.groupValues?.get(1)?.toInt()
+        } catch (e: Throwable) {
+            return null
+        }
+    }
+
     for (net in "/usr/sbin/ifconfig -s".runCommand().lines()) {
-        val ifname = net.split("\\s".toRegex(), limit = 1)[0]
-        if (ifname == "") continue
+        if (net == "") continue
+        val ifname = net.split("\\s".toRegex())[0]
         when (ifname[0]) {
             'e' -> {
                 myIp = getInet(ifname)
@@ -142,13 +151,6 @@ fun Init() {
             }
         }
     }
-}
-
-fun findChannel(filename: String): Int? {
-    try {
-        return "channel=([0-9]+)".toRegex()
-            .find(File(filename).readText())?.groupValues?.get(1)?.toInt()
-    } catch(e:Throwable) {return null}
 }
 
 val localRepo: Boolean = run {

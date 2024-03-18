@@ -158,7 +158,7 @@ class SensorInfo(
 }
 
 val Frequencies = listOf(50, 100, 1, 200, 30, 10)
-val FrequenciesV3 = listOf(100, 200, 500, 1000, 2000, 4000, 8000)
+val FrequenciesV3 = listOf(100, 500, 1000, 2000, 4000, 8000)
 
 @Serializable
 class ActimetreShort(
@@ -256,7 +256,7 @@ class Actimetre(
                     ZoneId.of("Z")
                 )
 
-                var msgFrequency = (sensorData[3].toInt() shr 2) and 0x07
+                val msgFrequency = (sensorData[3].toInt() shr 2) and 0x07
                 if (version >= "300") {
                     frequency = FrequenciesV3[msgFrequency]
                 } else {

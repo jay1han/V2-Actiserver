@@ -178,6 +178,6 @@ fun mainLoop() {
             selfToCentral()
             nextReport = now().plusSeconds(ACTIS_CHECK_SECS)
         }
-        Thread.sleep(1000L)
+        sleep(1000L)
     }
 }
