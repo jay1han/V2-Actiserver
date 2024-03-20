@@ -68,7 +68,7 @@ class RecordV3(buffer: UByteArray, bootEpoch: Long, msgBootEpoch: Int, msgMicros
     private val accelStr = makeAccelStr(buffer.sliceArray(0..5))
     private val gyroStr = makeGyroStr(buffer.sliceArray(6..9))
     val textStr: String = dateTime.csvFormat() +
-            ".%03d,".format(dateTime.nano / 1000000L) +
+            ".%06d,".format(dateTime.nano / 1_000L) +
             accelStr + "," + gyroStr
 }
 
