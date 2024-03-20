@@ -181,8 +181,9 @@ fun printLog(message: String) {
 }
 
 const val HEADER_LENGTH = 5
-//const val DATA_LENGTH = 12
-const val DATA_LENGTH = 10
+const val DATA_LENGTH = 12
+const val HEADERV3_LENGTH = 8
+const val DATAV3_LENGTH = 10
 const val INIT_LENGTH = 13
 
 var Registry = mutableMapOf<String, Int>()
@@ -255,10 +256,10 @@ fun Long.printSize(): String {
     return "%.${precision}f$unitStr".format(inUnits)
 }
 
-fun UByteArray.getInt3At(index: Int): Long {
-    return (this[index].toLong() shl 16) or
+fun UByteArray.getInt3At(index: Int): Int {
+    return ((this[index].toLong() shl 16) or
             (this[index + 1].toLong() shl 8) or
-            this[index + 2].toLong()
+            this[index + 2].toLong()).toInt()
 }
 
 fun UByte.parseSensorBits(): String {

@@ -20,50 +20,56 @@ import kotlin.io.path.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
 
-class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Int) {
-//    private val diffMillis = buffer[0].toInt() * 256 + buffer[1].toInt()
-//    private val adjEpoch = if (msgMillis + diffMillis > 1000) 1 else 0
-    private val diffMillis = 0
-    private val adjEpoch = 0
+private fun makeInt(msb: UByte, lsb: UByte) : Int {
+    var integer = msb.toInt() * 256 + lsb.toInt()
+    if (integer >= 32768) integer -= 65536
+    return integer
+}
+
+@OptIn(ExperimentalUnsignedTypes::class)
+private fun makeAccelStr(buffer: UByteArray): String{
+    val rawX = makeInt(buffer[0], buffer[1])
+    val rawY = makeInt(buffer[2], buffer[3])
+    val rawZ = makeInt(buffer[4], buffer[5])
+    return arrayOf(
+        rawX / 8192.0f,
+        rawY / 8192.0f,
+        rawZ / 8192.0f
+    ).joinToString(separator = ",") { "%+07.4f".format(it) }
+}
+
+@OptIn(ExperimentalUnsignedTypes::class)
+private fun makeGyroStr(buffer: UByteArray): String {
+    val rawX = makeInt(buffer[0], buffer[1])
+    val rawY = makeInt(buffer[2], buffer[3])
+    return arrayOf(
+        rawX / 131.0f,
+        rawY / 131.0f
+    ).joinToString(separator = ",") { "%+07.3f".format(it) }
+}
+class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Int, msgMillis: Int) {
+    private val diffMillis = buffer[0].toInt() * 256 + buffer[1].toInt()
     val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
-        Instant.ofEpochSecond((msgBootEpoch + bootEpoch + adjEpoch),
-            ((msgMillis + diffMillis) % 1000).toLong() * 1_000_000L),
+        Instant.ofEpochSecond(bootEpoch + msgBootEpoch,
+            (msgMillis + diffMillis).toLong() * 1_000_000L),
         ZoneId.of("Z"))
-//    private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
-//    private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
+    private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
+    private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
+    val textStr: String = dateTime.csvFormat() +
+            ".%03d,".format(dateTime.nano / 1000000L) +
+            accelStr + "," + gyroStr
+}
+
+class RecordV3(buffer: UByteArray, bootEpoch: Long, msgBootEpoch: Int, msgMicros: Int) {
+    val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
+        Instant.ofEpochSecond(bootEpoch + msgBootEpoch,
+            msgMicros.toLong() * 1_000L),
+        ZoneId.of("Z"))
     private val accelStr = makeAccelStr(buffer.sliceArray(0..5))
     private val gyroStr = makeGyroStr(buffer.sliceArray(6..9))
     val textStr: String = dateTime.csvFormat() +
             ".%03d,".format(dateTime.nano / 1000000L) +
             accelStr + "," + gyroStr
-
-    private fun makeInt(msb: UByte, lsb: UByte) : Int {
-        var integer = msb.toInt() * 256 + lsb.toInt()
-        if (integer >= 32768) integer -= 65536
-        return integer
-    }
-
-    @OptIn(ExperimentalUnsignedTypes::class)
-    private fun makeAccelStr(buffer: UByteArray): String{
-        val rawX = makeInt(buffer[0], buffer[1])
-        val rawY = makeInt(buffer[2], buffer[3])
-        val rawZ = makeInt(buffer[4], buffer[5])
-        return arrayOf(
-            rawX / 8192.0f,
-            rawY / 8192.0f,
-            rawZ / 8192.0f
-        ).joinToString(separator = ",") { "%+07.4f".format(it) }
-    }
-
-    @OptIn(ExperimentalUnsignedTypes::class)
-    private fun makeGyroStr(buffer: UByteArray): String {
-        val rawX = makeInt(buffer[0], buffer[1])
-        val rawY = makeInt(buffer[2], buffer[3])
-        return arrayOf(
-            rawX / 131.0f,
-            rawY / 131.0f
-        ).joinToString(separator = ",") { "%+07.3f".format(it) }
-    }
 }
 
 @Serializable
@@ -129,20 +135,28 @@ class SensorInfo(
         printLog("Start data file $fileName")
     }
 
-    fun writeData(record: Record): Pair<Boolean, Int> {
+    fun writeData(dateTime: ZonedDateTime, textStr: String): Pair<Boolean, Int> {
         var newFile = false
-        if (!this::fileHandle.isInitialized) newFile = findDataFile(record.dateTime)
+        if (!this::fileHandle.isInitialized) newFile = findDataFile(dateTime)
         else if (fileSize > MAX_REPO_SIZE ||
-            Duration.between(fileDate, record.dateTime) > MAX_REPO_TIME
+            Duration.between(fileDate, dateTime) > MAX_REPO_TIME
         ) {
             fileHandle.close()
             diskCapa()
-            newDataFile(record.dateTime)
+            newDataFile(dateTime)
             newFile = true
         }
-        fileHandle.append(record.textStr + "\n")
-        fileSize += record.textStr.length + 1
-        return Pair(newFile, record.textStr.length + 1)
+        fileHandle.append(textStr + "\n")
+        fileSize += textStr.length + 1
+        return Pair(newFile, textStr.length + 1)
+    }
+
+    fun writeData(record: Record): Pair<Boolean, Int> {
+        return writeData(record.dateTime, record.textStr)
+    }
+
+    fun writeData(record: RecordV3): Pair<Boolean, Int> {
+        return writeData(record.dateTime, record.textStr)
     }
 
     fun closeIfOpen() {
@@ -208,6 +222,7 @@ class Actimetre(
     var version   : String = "000",
     val serverId  : Int = 0,
 ) {
+    private var v3 = false
     var isDead = false
     var bootTime: ZonedDateTime = TimeZero
     var lastSeen: ZonedDateTime = TimeZero
@@ -228,40 +243,107 @@ class Actimetre(
     var repoNums: Int = 0
     var repoSize: Long = 0
 
+    private fun readInto(buffer: ByteBuffer): Boolean {
+        var inputLen = 0
+        val timeout = now().plusSeconds(1)
+        try {
+            while (inputLen < buffer.capacity() && now().isBefore(timeout)) {
+                inputLen += this.channel.read(buffer)
+            }
+        } catch (e: Throwable) {
+            printLog("${actimName()}:$e")
+            return false
+        }
+        if (inputLen != buffer.capacity()) {
+            printLog("${actimName()} sent $inputLen bytes < ${buffer.capacity()}. Skipping")
+            return false
+        }
+        return true
+    }
+
     @OptIn(ExperimentalUnsignedTypes::class)
     fun run(channel: ByteChannel) {
         this.channel = channel
-        while (true) {
-            var inputLen = 0
-            val sensorBuffer = ByteBuffer.allocate(msgLength)
-            val timeout = now().plusSeconds(1)
-            try {
-                while (inputLen < msgLength && now().isBefore(timeout)) {
-                    inputLen += this.channel.read(sensorBuffer)
+        if (v3) {
+            while (true) {
+                val headerBuffer = ByteBuffer.allocate(HEADERV3_LENGTH)
+                if (!readInto(headerBuffer)) break
+
+                lastSeen = now()
+                val sensorInfo = headerBuffer.array().toUByteArray()
+                val msgBootEpoch = sensorInfo.getInt3At(0)
+                val count = sensorInfo[3].toInt()
+                val msgMicros = sensorInfo.getInt3At(5)
+                val msgDateTime = ZonedDateTime.ofInstant(
+                    Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
+                    ZoneId.of("Z")
+                )
+
+                val msgFrequency = sensorInfo[4].toInt() and 0x0F
+                if (msgFrequency >= FrequenciesV3.size) break
+                frequency = FrequenciesV3[msgFrequency]
+                cycleNanoseconds = 1_000_000_000L / frequency
+
+                rssi = (sensorInfo[4].toInt() shr 4) and 0x0F
+
+                if (lastMessage == TimeZero) {
+                    totalPoints = 1
+                    missingPoints = 0
+
+                    Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+                        repoSize += it.fileSize()
+                        repoNums++
+                    }
+                } else {
+                    val cycles = Duration.between(lastMessage, msgDateTime)
+                        .dividedBy(Duration.ofNanos(cycleNanoseconds))
+                        .toInt()
+                    totalPoints += cycles
+                    if (cycles > count) {
+                        missingPoints += cycles - count
+                        printLog("${actimName()} missed ${cycles - count} cycles $missingPoints / $totalPoints = ${missingPoints.toDouble() / totalPoints}")
+                    }
+                    rating = missingPoints.toDouble() / totalPoints.toDouble()
                 }
-            } catch (e: Throwable) {
-                printLog("${actimName()}:$e")
-                return
+                lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
+
+                val sensorBuffer = ByteBuffer.allocate(DATAV3_LENGTH * count)
+                if (!readInto(sensorBuffer)) break
+
+                val sensorData = sensorBuffer.array().toUByteArray()
+                for (index in 0 until count) {
+                    val record = RecordV3(
+                        sensorData.sliceArray(index * DATAV3_LENGTH until (index + 1) * DATAV3_LENGTH),
+                        bootEpoch, msgBootEpoch,
+                        msgMicros - ((count - index - 1) * cycleNanoseconds / 1000).toInt()
+                    )
+                    if (!sensorList.containsKey("1A"))
+                        sensorList["1A"] = SensorInfo(actimId, "1A")
+                    val (newFile, sizeWritten) = sensorList["1A"]!!.writeData(record)
+                    repoSize += sizeWritten
+                    if (newFile) repoNums++
+                    if (newFile or (repoSize % 100_000 < 64)) {
+                        htmlData()
+                    }
+                }
             }
-            if (inputLen != msgLength) {
-                printLog("${actimName()} sent $inputLen bytes < $msgLength. Skipping")
-            } else {
+        } else {
+            while (true) {
+                val sensorBuffer = ByteBuffer.allocate(msgLength)
+                if (!readInto(sensorBuffer)) break
+
                 lastSeen = now()
                 val sensorData = sensorBuffer.array().toUByteArray()
                 val msgBootEpoch = sensorData.getInt3At(0)
                 val msgMillis = (sensorData[3].toInt() and 0x03) * 256 +
                         sensorData[4].toInt()
                 val msgDateTime = ZonedDateTime.ofInstant(
-                    Instant.ofEpochSecond(msgBootEpoch + bootEpoch, msgMillis * 1_000_000L),
+                    Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMillis * 1_000_000L),
                     ZoneId.of("Z")
                 )
 
                 val msgFrequency = (sensorData[3].toInt() shr 2) and 0x07
-                if (version >= "300") {
-                    frequency = FrequenciesV3[msgFrequency]
-                } else {
-                    frequency = Frequencies[msgFrequency]
-                }
+                frequency = Frequencies[msgFrequency]
                 cycleNanoseconds = 1_000_000_000L / frequency
 
                 rssi = (sensorData[3].toInt() shr 5) and 0x07
@@ -272,14 +354,14 @@ class Actimetre(
 
                     Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
-                        repoNums ++
+                        repoNums++
                     }
                 } else {
                     val cycles = Duration.between(lastMessage, msgDateTime)
                         .dividedBy(Duration.ofNanos(cycleNanoseconds))
                         .toInt()
                     if (cycles > frequency) {
-                        printLog("${actimName()} jumped over ${cycles-1} cycles")
+                        printLog("${actimName()} jumped over ${cycles - 1} cycles")
                     }
                     totalPoints += cycles
                     if (cycles > 1) {
@@ -290,7 +372,7 @@ class Actimetre(
                 }
                 lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
 
-                var index = 5
+                var index = HEADER_LENGTH
                 while (index < msgLength) {
                     val record = Record(
                         sensorData.sliceArray(index until (index + DATA_LENGTH)),
@@ -300,7 +382,7 @@ class Actimetre(
                         sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
                     val (newFile, sizeWritten) = sensorList[record.sensorId]!!.writeData(record)
                     repoSize += sizeWritten
-                    if (newFile) repoNums ++
+                    if (newFile) repoNums++
                     if (newFile or (repoSize % 100_000 < 64)) {
                         htmlData()
                     }
@@ -400,26 +482,29 @@ class Actimetre(
         this.boardType = boardType
         this.version = version
         this.bootTime = bootTime
+        v3 = version >= "300"
         lastSeen = bootTime
         lastReport = TimeZero
         totalPoints = 0
         missingPoints = 0
         rating = 0.0
         bootEpoch = bootTime.toEpochSecond()
-        nSensors = 0
-        for (port in 0..1) {
-            for (address in 0..1) {
-                val bitMask = 1 shl (port * 4 + address)
-                val sensorId = "%d%c".format(port + 1, 'A' + address)
+        if (!v3) {
+            nSensors = 0
+            for (port in 0..1) {
+                for (address in 0..1) {
+                    val bitMask = 1 shl (port * 4 + address)
+                    val sensorId = "%d%c".format(port + 1, 'A' + address)
                     if ((sensorBits.toInt() and bitMask) != 0) {
                         sensorList[sensorId] = SensorInfo(actimId, sensorId)
                         nSensors += 1
                         sensorOrder.add(sensorId)
+                    }
                 }
             }
+            msgLength = nSensors * DATA_LENGTH + HEADER_LENGTH
+            sensorOrder.sort()
         }
-        msgLength = nSensors * DATA_LENGTH + HEADER_LENGTH
-        sensorOrder.sort()
     }
 
     fun actimName(): String {
