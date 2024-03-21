@@ -42,7 +42,7 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
             input.close()
             responseText
         } else ""
-        printLog("Response[$responseCode]:${response.trim()}")
+        printLog("Response[$responseCode]:${if (response.length < 40) response.trim() else "[${response.length}]"}")
         return response
     } catch(e: Throwable) {
         printLog("httpRequest:$e")

@@ -132,7 +132,7 @@ class SensorInfo(
         file.setWritable(true, false)
         fileHandle = BufferedWriter(FileWriter(file))
         fileHandle.append("\n")
-        printLog("Start data file $fileName")
+        printLog("Start data file $fileName at $fileDate")
     }
 
     fun writeData(dateTime: ZonedDateTime, textStr: String): Pair<Boolean, Int> {
