@@ -257,9 +257,9 @@ fun Long.printSize(): String {
 }
 
 fun UByteArray.getInt3At(index: Int): Int {
-    return ((this[index].toLong() shl 16) or
-            (this[index + 1].toLong() shl 8) or
-            this[index + 2].toLong()).toInt()
+    return (this[index].toInt() shl 16) or
+            (this[index + 1].toInt() shl 8) or
+            this[index + 2].toInt()
 }
 
 fun UByte.parseSensorBits(): String {
