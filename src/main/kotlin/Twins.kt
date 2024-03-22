@@ -60,16 +60,28 @@ class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootE
             accelStr + "," + gyroStr
 }
 
-class RecordV3(buffer: UByteArray, bootEpoch: Long, msgBootEpoch: Int, msgMicros: Int) {
+class RecordV3(samplingMode: Int, buffer: UByteArray, bootEpoch: Long, msgBootEpoch: Int, msgMicros: Int) {
     val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
         Instant.ofEpochSecond(bootEpoch + msgBootEpoch,
             msgMicros.toLong() * 1_000L),
         ZoneId.of("Z"))
-    private val accelStr = makeAccelStr(buffer.sliceArray(0..5))
-    private val gyroStr = makeGyroStr(buffer.sliceArray(6..9))
-    val textStr: String = dateTime.csvFormat() +
-            ".%06d,".format(dateTime.nano / 1_000L) +
-            accelStr + "," + gyroStr
+
+    var textStr: String
+
+    init {
+        var accelStr = "+0.0000,+0.0000,+0.0000"
+        var gyroStr = "+00.000,+00.000"
+
+        if (samplingMode == 1) accelStr = makeAccelStr(buffer.sliceArray(0..5))
+        else if (samplingMode == 2) gyroStr = makeGyroStr(buffer.sliceArray(0..3))
+        else {
+            accelStr = makeAccelStr(buffer.sliceArray(0..5))
+            gyroStr = makeGyroStr(buffer.sliceArray(6..9))
+        }
+        textStr = dateTime.csvFormat() +
+                ".%06d,".format(dateTime.nano / 1_000L) +
+                accelStr + "," + gyroStr
+    }
 }
 
 @Serializable
@@ -240,6 +252,7 @@ class Actimetre(
     private var totalPoints = 0
     var rating = 0.0
     var rssi: Int = 0
+    var samplingMode: Int = 0
     var repoNums: Int = 0
     var repoSize: Long = 0
 
@@ -279,12 +292,18 @@ class Actimetre(
                     ZoneId.of("Z")
                 )
 
-                val msgFrequency = sensorInfo[4].toInt() and 0x0F
+                val msgFrequency = sensorInfo[4].toInt() and 0x07
                 if (msgFrequency >= FrequenciesV3.size) break
                 frequency = FrequenciesV3[msgFrequency]
                 cycleNanoseconds = 1_000_000_000L / frequency
 
-                rssi = (sensorInfo[4].toInt() shr 4) and 0x0F
+                rssi = (sensorInfo[4].toInt() shr 5) and 0x07
+                samplingMode = (sensorInfo[4].toInt() shr 3) and 0x03
+                val dataLength = when (samplingMode) {
+                    1 -> 6
+                    2 -> 4
+                    else -> 10
+                }
 
                 if (lastMessage == TimeZero) {
                     totalPoints = 1
@@ -307,13 +326,13 @@ class Actimetre(
                 }
                 lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
 
-                val sensorBuffer = ByteBuffer.allocate(DATAV3_LENGTH * count)
+                val sensorBuffer = ByteBuffer.allocate(dataLength * count)
                 if (!readInto(sensorBuffer)) break
 
                 val sensorData = sensorBuffer.array().toUByteArray()
                 for (index in 0 until count) {
-                    val record = RecordV3(
-                        sensorData.sliceArray(index * DATAV3_LENGTH until (index + 1) * DATAV3_LENGTH),
+                    val record = RecordV3(samplingMode,
+                        sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
                         bootEpoch, msgBootEpoch,
                         msgMicros - ((count - index - 1) * cycleNanoseconds / 1000).toInt()
                     )

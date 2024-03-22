@@ -183,7 +183,6 @@ fun printLog(message: String) {
 const val HEADER_LENGTH = 5
 const val DATA_LENGTH = 12
 const val HEADERV3_LENGTH = 8
-const val DATAV3_LENGTH = 10
 const val INIT_LENGTH = 13
 
 var Registry = mutableMapOf<String, Int>()
