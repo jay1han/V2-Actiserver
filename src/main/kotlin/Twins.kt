@@ -293,7 +293,10 @@ class Actimetre(
                 )
 
                 val msgFrequency = sensorInfo[4].toInt() and 0x07
-                if (msgFrequency >= FrequenciesV3.size) break
+                if (msgFrequency >= FrequenciesV3.size) {
+                    printLog("Frequency code $msgFrequency out of bounds")
+                    break
+                }
                 frequency = FrequenciesV3[msgFrequency]
                 cycleNanoseconds = 1_000_000_000L / frequency
 
