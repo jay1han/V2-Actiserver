@@ -256,7 +256,7 @@ class Actimetre(
     var repoNums: Int = 0
     var repoSize: Long = 0
 
-    private fun readInto(buffer: ByteBuffer): Boolean {
+    private fun readInto(buffer: ByteBuffer): Int {
         var inputLen = 0
         val timeout = now().plusSeconds(1)
         try {
@@ -265,13 +265,12 @@ class Actimetre(
             }
         } catch (e: Throwable) {
             printLog("${actimName()}:$e")
-            return false
+            return 0
         }
         if (inputLen != buffer.capacity()) {
-            printLog("${actimName()} sent $inputLen bytes < ${buffer.capacity()}. Skipping")
-            return false
+            printLog("${actimName()} sent $inputLen bytes < ${buffer.capacity()}")
         }
-        return true
+        return inputLen
     }
 
     @OptIn(ExperimentalUnsignedTypes::class)
@@ -280,7 +279,11 @@ class Actimetre(
         if (v3) {
             while (true) {
                 val headerBuffer = ByteBuffer.allocate(HEADERV3_LENGTH)
-                if (!readInto(headerBuffer)) break
+                val inputLen = readInto(headerBuffer)
+                if (inputLen != HEADERV3_LENGTH) {
+                    printLog("Header V3 expected, received $inputLen bytes")
+                    break
+                }
 
                 lastSeen = now()
                 val sensorInfo = headerBuffer.array().toUByteArray()
@@ -330,7 +333,11 @@ class Actimetre(
                 lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
 
                 val sensorBuffer = ByteBuffer.allocate(dataLength * count)
-                if (!readInto(sensorBuffer)) break
+                val dataLen = readInto(sensorBuffer)
+                if (dataLen != dataLength * count) {
+                    printLog("Data length $dataLen != ${dataLength * count}")
+                    break
+                }
 
                 val sensorData = sensorBuffer.array().toUByteArray()
                 for (index in 0 until count) {
@@ -352,7 +359,11 @@ class Actimetre(
         } else {
             while (true) {
                 val sensorBuffer = ByteBuffer.allocate(msgLength)
-                if (!readInto(sensorBuffer)) break
+                val dataLen = readInto(sensorBuffer)
+                if (dataLen != msgLength) {
+                    printLog("Data length $dataLen != $msgLength")
+                    break
+                }
 
                 lastSeen = now()
                 val sensorData = sensorBuffer.array().toUByteArray()
