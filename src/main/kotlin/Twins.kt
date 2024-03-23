@@ -69,8 +69,8 @@ class RecordV3(samplingMode: Int, buffer: UByteArray, bootEpoch: Long, msgBootEp
     var textStr: String
 
     init {
-        var accelStr = "+0.0000,+0.0000,+0.0000"
-        var gyroStr = "+00.000,+00.000"
+        var accelStr = "0,0,0"
+        var gyroStr = "0,0"
 
         if (samplingMode == 1) accelStr = makeAccelStr(buffer.sliceArray(0..5))
         else if (samplingMode == 2) gyroStr = makeGyroStr(buffer.sliceArray(0..3))
