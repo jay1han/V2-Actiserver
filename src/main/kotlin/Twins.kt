@@ -241,7 +241,7 @@ class Actimetre(
     var lastReport: ZonedDateTime = TimeZero
     private var sensorList = mutableMapOf<String, SensorInfo>()
     private var nSensors = 0
-    private lateinit var channel: ByteChannel
+    lateinit var channel: ByteChannel
     private var msgLength = 0
     private var sensorOrder = mutableListOf<String>()
     private var bootEpoch = 0L
@@ -625,7 +625,7 @@ class Actiserver(
                 a = Actimetre(actimId, serverId = serverId)
                 actimetreList[actimId] = a
             }
-            a.setInfo(mac, boardType, version, bootTime = bootTime, sensorBits = sensorBits)
+            a.setInfo(mac, boardType, version, bootTime, sensorBits)
             return a
         }
     }

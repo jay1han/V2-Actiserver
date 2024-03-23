@@ -6,16 +6,15 @@ import java.io.DataOutputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.ByteBuffer
 import javax.net.ssl.HttpsURLConnection
 
 fun sendHttpRequest(reqString: String, data: String = ""): String {
     printLog(reqString + if (data != "") "\ndata=${data.cleanJson()}" else "")
-    var centralURL: URL
-    if (USE_HTTPS) {
-        centralURL = URL("https://$CENTRAL_HOST$reqString&secret=$SECRET_KEY")
-    } else {
-        centralURL = URL("http://$CENTRAL_HOST$reqString")
-    }
+    val centralURL =
+        if (USE_HTTPS) URL("https://$CENTRAL_HOST$reqString&secret=$SECRET_KEY")
+        else URL("http://$CENTRAL_HOST$reqString")
+
     printLog(centralURL.toString())
 
     try {
@@ -40,9 +39,9 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
             val reader = BufferedReader(InputStreamReader(input))
             val responseText = reader.readText()
             input.close()
-            responseText
+            responseText.trim()
         } else ""
-        printLog("Response[$responseCode]:${if (response.length < 40) response.trim() else "[${response.length}]"}")
+        printLog("Response[$responseCode]:${if (response.length < 40) response else "[${response.length}]"}")
         return response
     } catch(e: Throwable) {
         printLog("httpRequest:$e")
@@ -51,7 +50,7 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
 }
 
 fun selfToCentral() {
-    synchronized(Self) {
+    synchronized<Unit>(Self) {
         Self.lastReport = now()
         printLog("v${VERSION_STRING} Alive with " +
                 if (Self.actimetreList.isEmpty()) "no Actimetres"
@@ -60,12 +59,25 @@ fun selfToCentral() {
                         "@${it.frequency}" + "(${it.sensorStr()})" + "%.3f%%".format(it.rating * 100.0)
                     }
                 })
-        val reqString = CENTRAL_BIN +
-                "action=actiserver&serverId=${serverId}"
+        val reqString = CENTRAL_BIN + "action=actiserver&serverId=$serverId"
         val data = Json.encodeToString(Self.toCentral())
-        val registryText = sendHttpRequest(reqString, data)
-        if (registryText != "") {
-            loadRegistry(registryText)
+        val responseText = sendHttpRequest(reqString, data)
+        if (responseText.startsWith("+")) {
+            val actimId = responseText.substring(1).substringBefore(':').toInt()
+            val command = responseText.substring(1).substringAfter(':').toInt()
+            if (actimId in Self.actimetreList.keys) {
+                printLog("Send command $command to Actimetre $actimId")
+                val actim = Self.actimetreList[actimId]!!
+                val commandBuffer = ByteBuffer.allocate(1)
+                commandBuffer.array()[0] = command.toByte()
+                actim.channel.write(commandBuffer)
+            } else {
+                printLog("No Actimetre $actimId to send $command to")
+            }
+        } else {
+            if (responseText != "") {
+                loadRegistry(responseText)
+            }
         }
     }
 }

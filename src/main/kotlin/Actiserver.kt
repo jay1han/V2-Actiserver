@@ -54,9 +54,9 @@ fun main(args: Array<String>) {
     var clientCount = 0
     while (true) {
         println("Listening... $clientCount")
-        val channel = actiServer.accept() as ByteChannel
+        val socket = actiServer.accept()
         clientCount += 1
-        newClient(channel)
+        newClient(socket as ByteChannel)
     }
 }
 
