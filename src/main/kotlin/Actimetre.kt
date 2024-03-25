@@ -110,12 +110,20 @@ class Actimetre(
                 val headerBuffer = ByteBuffer.allocate(HEADERV3_LENGTH)
                 val inputLen = readInto(headerBuffer)
                 if (inputLen != HEADERV3_LENGTH) {
-                    printLog("Header V3 expected, received $inputLen bytes")
+                    printLog("${actimName()} received header $inputLen bytes != $HEADERV3_LENGTH")
                     break
                 }
 
                 lastSeen = now()
                 val sensorInfo = headerBuffer.array().toUByteArray()
+                if (sensorInfo[0].toInt() == 0xFF) {
+                    val messageLen = sensorInfo[3].toInt()
+                    val messageBuffer = ByteBuffer.allocate(messageLen)
+                    readInto(messageBuffer)
+                    val messageText = messageBuffer.array().decodeToString()
+                    printLog("${actimName()} FATAL:$messageText")
+                    break
+                }
                 val msgBootEpoch = sensorInfo.getInt3At(0)
                 val count = sensorInfo[3].toInt()
                 val msgMicros = sensorInfo.getInt3At(5)
@@ -126,7 +134,7 @@ class Actimetre(
 
                 val msgFrequency = sensorInfo[4].toInt() and 0x07
                 if (msgFrequency >= FrequenciesV3.size) {
-                    printLog("Frequency code $msgFrequency out of bounds")
+                    printLog("${actimName()} Frequency code $msgFrequency out of bounds")
                     break
                 }
                 frequency = FrequenciesV3[msgFrequency]
@@ -155,7 +163,7 @@ class Actimetre(
                     totalPoints += cycles
                     if (cycles > count) {
                         missingPoints += cycles - count
-                        printLog("${actimName()} missed ${cycles - count} cycles $missingPoints / $totalPoints = ${missingPoints.toDouble() / totalPoints}")
+//                        printLog("${actimName()} missed ${cycles - count} cycles $missingPoints / $totalPoints = ${missingPoints.toDouble() / totalPoints}")
                     }
                     rating = missingPoints.toDouble() / totalPoints.toDouble()
                 }
@@ -164,7 +172,7 @@ class Actimetre(
                 val sensorBuffer = ByteBuffer.allocate(dataLength * count)
                 val dataLen = readInto(sensorBuffer)
                 if (dataLen != dataLength * count) {
-                    printLog("Data length $dataLen != ${dataLength * count}")
+                    printLog("${actimName()} Data length $dataLen != ${dataLength * count}")
                     break
                 }
 
@@ -223,12 +231,12 @@ class Actimetre(
                         .dividedBy(Duration.ofNanos(cycleNanoseconds))
                         .toInt()
                     if (cycles > frequency) {
-                        printLog("${actimName()} jumped over ${cycles - 1} cycles")
+//                        printLog("${actimName()} jumped over ${cycles - 1} cycles")
                     }
                     totalPoints += cycles
                     if (cycles > 1) {
                         missingPoints += cycles - 1
-                        printLog("${actimName()} missed $cycles cycles $missingPoints / $totalPoints = ${missingPoints.toDouble() / totalPoints}")
+//                        printLog("${actimName()} missed $cycles cycles $missingPoints / $totalPoints = ${missingPoints.toDouble() / totalPoints}")
                     }
                     rating = missingPoints.toDouble() / totalPoints.toDouble()
                 }

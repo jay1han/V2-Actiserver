@@ -159,7 +159,7 @@ fun newClient (channel: ByteChannel) {
         printLog("Cleaning up ${a.actimName()}")
         selfToCentral()
         channel.close()
-        println("Closed channel")
+        println("${a.actimName()} Closed channel")
     }
 }
 
