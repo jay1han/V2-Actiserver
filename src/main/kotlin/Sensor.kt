@@ -41,11 +41,11 @@ private fun makeGyroStr(buffer: UByteArray): String {
     ).joinToString(separator = ",") { "%+07.3f".format(it) }
 }
 
-class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Int, msgMillis: Int) {
-    private val diffMillis = buffer[0].toInt() * 256 + buffer[1].toInt()
+class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Long) {
+    private val diffMillis = buffer[0].toLong() * 256 + buffer[1].toLong()
     val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
         Instant.ofEpochSecond(bootEpoch + msgBootEpoch,
-            (msgMillis + diffMillis).toLong() * 1_000_000L),
+            (msgMillis + diffMillis) * 1_000_000L),
         ZoneId.of("Z"))
     private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
     private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
@@ -54,10 +54,10 @@ class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootE
             accelStr + "," + gyroStr
 }
 
-class RecordV3(samplingMode: Int, buffer: UByteArray, bootEpoch: Long, msgBootEpoch: Int, msgMicros: Int) {
+class RecordV3(samplingMode: Int, buffer: UByteArray, bootEpoch: Long, msgBootEpoch: Long, msgMicros: Long) {
     val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
         Instant.ofEpochSecond(bootEpoch + msgBootEpoch,
-            msgMicros.toLong() * 1_000L),
+            msgMicros * 1_000L),
         ZoneId.of("Z"))
 
     var textStr: String
@@ -102,7 +102,8 @@ class SensorInfo(
             val thisRepoFile = it.fileName.toString()
             if ("Actim[0-9]{4}-[12][AB]_[0-9]{14}\\.csv".toRegex().matches(thisRepoFile)) {
                 val thisRepoDate = thisRepoFile.parseFileDate()
-                if (sensorName() == thisRepoFile.substring(0, 12)) {
+                if (sensorName() == thisRepoFile.substring(0, 12) &&
+                    (thisRepoDate <= atDateTime)) {
                     if (lastRepoFile == "" ||
                         (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
                     ) {

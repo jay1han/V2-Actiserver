@@ -124,9 +124,9 @@ class Actimetre(
                     printLog("${actimName()} FATAL:$messageText")
                     break
                 }
-                val msgBootEpoch = sensorInfo.getInt3At(0)
+                val msgBootEpoch = sensorInfo.getInt3At(0).toLong()
                 val count = sensorInfo[3].toInt()
-                val msgMicros = sensorInfo.getInt3At(5)
+                val msgMicros = sensorInfo.getInt3At(5).toLong()
                 val msgDateTime = ZonedDateTime.ofInstant(
                     Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
                     ZoneId.of("Z")
@@ -204,9 +204,9 @@ class Actimetre(
 
                 lastSeen = now()
                 val sensorData = sensorBuffer.array().toUByteArray()
-                val msgBootEpoch = sensorData.getInt3At(0)
-                val msgMillis = (sensorData[3].toInt() and 0x03) * 256 +
-                        sensorData[4].toInt()
+                val msgBootEpoch = sensorData.getInt3At(0).toLong()
+                val msgMillis = (sensorData[3].toLong() and 0x03) * 256 +
+                        sensorData[4].toLong()
                 val msgDateTime = ZonedDateTime.ofInstant(
                     Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMillis * 1_000_000L),
                     ZoneId.of("Z")
