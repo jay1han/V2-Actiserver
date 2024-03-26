@@ -125,7 +125,8 @@ class Actimetre(
                     break
                 }
                 val msgBootEpoch = sensorInfo.getInt3At(0).toLong()
-                val count = sensorInfo[3].toInt()
+                val count = sensorInfo[3].toInt() and 0x3F
+                val sensorId = "${'1' + (sensorInfo[3].toInt() shr 7)}${'A' + ((sensorInfo[3].toInt() and 0x40) shr 6)}"
                 val msgMicros = sensorInfo.getInt3At(5).toLong()
                 val msgDateTime = ZonedDateTime.ofInstant(
                     Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
@@ -183,9 +184,9 @@ class Actimetre(
                         bootEpoch, msgBootEpoch,
                         msgMicros - ((count - index - 1) * cycleNanoseconds / 1000).toInt()
                     )
-                    if (!sensorList.containsKey("1A"))
-                        sensorList["1A"] = SensorInfo(actimId, "1A")
-                    val (newFile, sizeWritten) = sensorList["1A"]!!.writeData(record)
+                    if (!sensorList.containsKey(sensorId))
+                        sensorList[sensorId] = SensorInfo(actimId, "1A")
+                    val (newFile, sizeWritten) = sensorList[sensorId]!!.writeData(record)
                     repoSize += sizeWritten
                     if (newFile) repoNums++
                     if (newFile or (repoSize % 100_000 < 64)) {
