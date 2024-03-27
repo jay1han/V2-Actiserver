@@ -126,7 +126,7 @@ class Actimetre(
                 }
                 val msgBootEpoch = sensorInfo.getInt3At(0).toLong()
                 val count = sensorInfo[3].toInt() and 0x3F
-                val sensorId = "${'1' + (sensorInfo[3].toInt() shr 7)}${'A' + ((sensorInfo[3].toInt() and 0x40) shr 6)}"
+                val sensorName = "${'1' + (sensorInfo[3].toInt() shr 7)}${'A' + ((sensorInfo[3].toInt() and 0x40) shr 6)}"
                 val msgMicros = sensorInfo.getInt3At(5).toLong()
                 val msgDateTime = ZonedDateTime.ofInstant(
                     Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
@@ -184,9 +184,9 @@ class Actimetre(
                         bootEpoch, msgBootEpoch,
                         msgMicros - ((count - index - 1) * cycleNanoseconds / 1000).toInt()
                     )
-                    if (!sensorList.containsKey(sensorId))
-                        sensorList[sensorId] = SensorInfo(actimId, "1A")
-                    val (newFile, sizeWritten) = sensorList[sensorId]!!.writeData(record)
+                    if (!sensorList.containsKey(sensorName))
+                        sensorList[sensorName] = SensorInfo(actimId, sensorName)
+                    val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
                     repoSize += sizeWritten
                     if (newFile) repoNums++
                     if (newFile or (repoSize % 100_000 < 64)) {
@@ -360,22 +360,20 @@ class Actimetre(
         missingPoints = 0
         rating = 0.0
         bootEpoch = bootTime.toEpochSecond()
-        if (!v3) {
-            nSensors = 0
-            for (port in 0..1) {
-                for (address in 0..1) {
-                    val bitMask = 1 shl (port * 4 + address)
-                    val sensorId = "%d%c".format(port + 1, 'A' + address)
-                    if ((sensorBits.toInt() and bitMask) != 0) {
-                        sensorList[sensorId] = SensorInfo(actimId, sensorId)
-                        nSensors += 1
-                        sensorOrder.add(sensorId)
-                    }
+        nSensors = 0
+        for (port in 0..1) {
+            for (address in 0..1) {
+                val bitMask = 1 shl (port * 4 + address)
+                val sensorName = "%d%c".format(port + 1, 'A' + address)
+                if ((sensorBits.toInt() and bitMask) != 0) {
+                    sensorList[sensorName] = SensorInfo(actimId, sensorName)
+                    nSensors += 1
+                    sensorOrder.add(sensorName)
                 }
             }
-            msgLength = nSensors * DATA_LENGTH + HEADER_LENGTH
-            sensorOrder.sort()
         }
+        msgLength = nSensors * DATA_LENGTH + HEADER_LENGTH
+        sensorOrder.sort()
     }
 
     fun actimName(): String {
