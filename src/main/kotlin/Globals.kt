@@ -188,12 +188,14 @@ fun diskCapa() {
         }
         printLog("Disk full, deleting $oldestFile")
         if (oldestFile != "") {
-            Path(oldestFile).toFile().delete()
+            Path("$REPO_ROOT/$oldestFile").toFile().delete()
             disk = Disk()
         }
     }
 
     Self.df(disk.size, disk.free)
+    printLog("Disk size ${Self.diskSize}, free ${Self.diskFree} (%.1f%%)"
+        .format(100.0 * Self.diskFree / Self.diskSize))
 }
 
 lateinit var Self: Actiserver
