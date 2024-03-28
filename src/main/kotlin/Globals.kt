@@ -14,8 +14,10 @@ import java.io.PrintWriter
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.Path
+import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "310"
+const val VERSION_STRING = "314"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -163,11 +165,35 @@ val localRepo: Boolean = run {
     df.startsWith("/dev/")
 }
 
-fun diskCapa() {
-    val df = "/usr/bin/df -B 1 $REPO_ROOT".runCommand().lines()[1].split("\\s+".toRegex())
+class Disk {
+    private val df = "/usr/bin/df -B 1 $REPO_ROOT".runCommand().lines()[1].split("\\s+".toRegex())
     val size = df[1].toLong()
     val free = df[3].toLong()
-    Self.df(size, free)
+}
+
+fun diskCapa() {
+    var disk = Disk()
+    if (disk.free < disk.size / 20) {
+        var oldestTime = now()
+        var oldestFile: String = ""
+        Path(REPO_ROOT).forEachDirectoryEntry {
+            val thisRepoFile = it.fileName.toString()
+            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14}\\.csv".toRegex().matches(thisRepoFile)) {
+                val thisRepoDate = thisRepoFile.parseFileDate()
+                if (thisRepoDate < oldestTime) {
+                    oldestFile = thisRepoFile
+                    oldestTime = thisRepoDate
+                }
+            }
+        }
+        printLog("Disk full, deleting $oldestFile")
+        if (oldestFile != "") {
+            Path(oldestFile).toFile().delete()
+            disk = Disk()
+        }
+    }
+
+    Self.df(disk.size, disk.free)
 }
 
 lateinit var Self: Actiserver
