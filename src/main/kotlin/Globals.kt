@@ -17,13 +17,14 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "314"
+const val VERSION_STRING = "316"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
 var ACTI_PORT = 2883
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
+var CLEANUP_EXEC = ""
 var SECRET_KEY: String = "YouDontKnowThis"
 
 var REPO_ROOT = "/media/actimetre"
@@ -78,6 +79,7 @@ class Options(configFileName: String = "") {
                         "max_repo_size" -> MAX_REPO_SIZE = value.replace("_", "").toInt()
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
                         "secret_key" -> SECRET_KEY = value
+                        "cleanup_exec" -> CLEANUP_EXEC = value
                         "options" -> for (c in value.toCharArray()) {
                             when (c) {
                                 't' -> test = true
@@ -175,7 +177,7 @@ fun diskCapa() {
     var disk = Disk()
     if (disk.free < disk.size / 20) {
         var oldestTime = now()
-        var oldestFile: String = ""
+        var oldestFile = ""
         Path(REPO_ROOT).forEachDirectoryEntry {
             val thisRepoFile = it.fileName.toString()
             if ("Actim[0-9]{4}-[12][AB]_[0-9]{14}\\.csv".toRegex().matches(thisRepoFile)) {
@@ -191,6 +193,12 @@ fun diskCapa() {
             Path("$REPO_ROOT/$oldestFile").toFile().delete()
             disk = Disk()
         }
+    }
+
+    if (disk.free < disk.size / 10 && CLEANUP_EXEC != "") {
+        val cleanup = CLEANUP_EXEC.runCommand()
+        printLog("Disk cleaup: $cleanup")
+        disk = Disk()
     }
 
     Self.df(disk.size, disk.free)
@@ -225,7 +233,7 @@ private val actiFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyM
 private val prettyFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
 private val csvFormat:    DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd,HH:mm:ss")
 
-val TimeZero = ZonedDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneId.of("Z"))
+val TimeZero: ZonedDateTime = ZonedDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneId.of("Z"))
 
 object DateTimeAsString: KSerializer<ZonedDateTime> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("ZonedDateTime", PrimitiveKind.STRING)
@@ -250,7 +258,7 @@ fun ZonedDateTime.csvFormat(): String {
 }
 
 fun Duration.printSec(): String {
-    return "${this.toSeconds().toString()}s"
+    return "${this.toSeconds()}s"
 }
 
 fun ZonedDateTime.actiFormat(): String {
