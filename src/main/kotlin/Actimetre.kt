@@ -78,7 +78,7 @@ class Actimetre(
     var frequency = 100
     private var cycleNanoseconds = 1_000_000_000L / frequency
     private var lastMessage = TimeZero
-    private var missingPoints  = 0
+    private var samplePoints  = 0
     private var totalPoints = 0
     var rating = 0.0
     var rssi: Int = 0
@@ -151,7 +151,7 @@ class Actimetre(
 
                 if (lastMessage == TimeZero) {
                     totalPoints = 1
-                    missingPoints = 0
+                    samplePoints = 0
 
                     Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
@@ -162,11 +162,8 @@ class Actimetre(
                         .dividedBy(Duration.ofNanos(cycleNanoseconds))
                         .toInt()
                     totalPoints += cycles
-                    if (cycles > count) {
-                        missingPoints += cycles - count
-//                        printLog("${actimName()} missed ${cycles - count} cycles $missingPoints / $totalPoints = ${missingPoints.toDouble() / totalPoints}")
-                    }
-                    rating = missingPoints.toDouble() / totalPoints.toDouble()
+                    samplePoints += count
+                    rating = 1.0 - (totalPoints.toDouble() / totalPoints.toDouble())
                 }
                 lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
 
@@ -221,7 +218,7 @@ class Actimetre(
 
                 if (lastMessage == TimeZero) {
                     totalPoints = 1
-                    missingPoints = 0
+                    samplePoints = 0
 
                     Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
@@ -235,11 +232,8 @@ class Actimetre(
 //                        printLog("${actimName()} jumped over ${cycles - 1} cycles")
                     }
                     totalPoints += cycles
-                    if (cycles > 1) {
-                        missingPoints += cycles - 1
-//                        printLog("${actimName()} missed $cycles cycles $missingPoints / $totalPoints = ${missingPoints.toDouble() / totalPoints}")
-                    }
-                    rating = missingPoints.toDouble() / totalPoints.toDouble()
+                    samplePoints += 1
+                    rating = 1.0 - (samplePoints.toDouble() / totalPoints.toDouble())
                 }
                 lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
 
@@ -357,7 +351,7 @@ class Actimetre(
         lastSeen = bootTime
         lastReport = TimeZero
         totalPoints = 0
-        missingPoints = 0
+        samplePoints = 0
         rating = 0.0
         bootEpoch = bootTime.toEpochSecond()
         nSensors = 0

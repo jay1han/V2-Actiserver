@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "316"
+const val VERSION_STRING = "317"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
