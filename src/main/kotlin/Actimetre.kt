@@ -121,8 +121,8 @@ class Actimetre(
                     val messageBuffer = ByteBuffer.allocate(messageLen)
                     readInto(messageBuffer)
                     val messageText = messageBuffer.array().decodeToString()
-                    printLog("${actimName()} FATAL:$messageText")
-                    break
+                    printLog("${actimName()} ERROR:$messageText")
+                    continue
                 }
                 val msgBootEpoch = sensorInfo.getInt3At(0).toLong()
                 val count = sensorInfo[3].toInt() and 0x3F
