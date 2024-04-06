@@ -176,7 +176,7 @@ class Actimetre(
                     val record = RecordV3(samplingMode,
                         sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
                         bootEpoch, msgBootEpoch,
-                        msgMicros - ((count - index - 1) * cycleNanoseconds / 1000).toInt()
+                        msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
                     )
                     val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
                     repoSize += sizeWritten
