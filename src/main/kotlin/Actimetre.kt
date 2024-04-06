@@ -75,14 +75,13 @@ class Actimetre(
     private var msgLength = 0
     private var sensorOrder = mutableListOf<String>()
     private var bootEpoch = 0L
-    var frequency = 100
-    private var cycleNanoseconds = 1_000_000_000L / frequency
+    var frequency = 0
+    private var cycleNanoseconds = 200000000L
     private var lastMessage = TimeZero
     private var samplePoints  = 0
     private var totalPoints = 0
     var rating = 0.0
     var rssi: Int = 0
-    var samplingMode: Int = 0
     var repoNums: Int = 0
     var repoSize: Long = 0
 
@@ -115,74 +114,70 @@ class Actimetre(
                 }
 
                 lastSeen = now()
-                val sensorInfo = headerBuffer.array().toUByteArray()
-                if (sensorInfo[0].toInt() == 0xFF) {
-                    val messageLen = sensorInfo[3].toInt()
+                val sensorHeader = headerBuffer.array().toUByteArray()
+                if (sensorHeader[0].toInt() == 0xFF) {
+                    val messageLen = sensorHeader[3].toInt()
                     val messageBuffer = ByteBuffer.allocate(messageLen)
                     readInto(messageBuffer)
                     val messageText = messageBuffer.array().decodeToString()
                     printLog("${actimName()} ERROR:$messageText")
                     continue
                 }
-                val msgBootEpoch = sensorInfo.getInt3At(0).toLong()
-                val count = sensorInfo[3].toInt() and 0x3F
-                val sensorName = "${'1' + (sensorInfo[3].toInt() shr 7)}${'A' + ((sensorInfo[3].toInt() and 0x40) shr 6)}"
-                val msgMicros = sensorInfo.getInt3At(5).toLong()
-                val msgDateTime = ZonedDateTime.ofInstant(
-                    Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
-                    ZoneId.of("Z")
-                )
 
-                val msgFrequency = sensorInfo[4].toInt() and 0x07
-                if (msgFrequency >= FrequenciesV3.size) {
-                    printLog("${actimName()} Frequency code $msgFrequency out of bounds")
-                    break
-                }
-                frequency = FrequenciesV3[msgFrequency]
-                cycleNanoseconds = 1_000_000_000L / frequency
+                val sensorName = "${'1' + (sensorHeader[3].toInt() shr 7)}${'A' + ((sensorHeader[3].toInt() and 0x40) shr 6)}"
+                if (!sensorList.containsKey(sensorName))
+                    sensorList[sensorName] = SensorInfo(actimId, sensorName)
 
-                rssi = (sensorInfo[4].toInt() shr 5) and 0x07
-                samplingMode = (sensorInfo[4].toInt() shr 3) and 0x03
+                rssi = (sensorHeader[4].toInt() shr 5) and 0x07
+                val samplingMode = (sensorHeader[4].toInt() shr 3) and 0x03
                 val dataLength = when (samplingMode) {
                     1 -> 6
                     2 -> 4
                     else -> 10
                 }
 
-                if (lastMessage == TimeZero) {
-                    totalPoints = 1
+                val msgBootEpoch = sensorHeader.getInt3At(0).toLong()
+                val count = sensorHeader[3].toInt() and 0x3F
+                val msgMicros = sensorHeader.getInt3At(5).toLong()
+                val msgDateTime = ZonedDateTime.ofInstant(
+                    Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
+                    ZoneId.of("Z")
+                )
+
+                val msgFrequency = sensorHeader[4].toInt() and 0x07
+                if (msgFrequency >= FrequenciesV3.size) {
+                    printLog("${actimName()} Frequency code $msgFrequency out of bounds")
+                    break
+                }
+                if (frequency != FrequenciesV3[msgFrequency]) {
+                    frequency = FrequenciesV3[msgFrequency]
+                    cycleNanoseconds = 1_000_000_000L / frequency
+                    totalPoints = 0
                     samplePoints = 0
 
                     Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
                         repoNums++
                     }
-                } else {
-                    val cycles = Duration.between(lastMessage, msgDateTime)
-                        .dividedBy(Duration.ofNanos(cycleNanoseconds))
-                        .toInt()
-                    totalPoints += cycles
-                    samplePoints += count
-                    rating = 1.0 - (totalPoints.toDouble() / totalPoints.toDouble())
                 }
-                lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
 
                 val sensorBuffer = ByteBuffer.allocate(dataLength * count)
-                val dataLen = readInto(sensorBuffer)
-                if (dataLen != dataLength * count) {
-                    printLog("${actimName()} Data length $dataLen != ${dataLength * count}")
+                val readLength = readInto(sensorBuffer)
+                if (readLength != dataLength * count) {
+                    printLog("${actimName()} Data length $readLength != ${dataLength * count}")
                     break
                 }
-
                 val sensorData = sensorBuffer.array().toUByteArray()
+                totalPoints += sensorList[sensorName]!!.countPoints(msgDateTime, cycleNanoseconds, count)
+                samplePoints += count
+                rating = 1.0 - (samplePoints.toDouble() / totalPoints.toDouble())
+
                 for (index in 0 until count) {
                     val record = RecordV3(samplingMode,
                         sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
                         bootEpoch, msgBootEpoch,
                         msgMicros - ((count - index - 1) * cycleNanoseconds / 1000).toInt()
                     )
-                    if (!sensorList.containsKey(sensorName))
-                        sensorList[sensorName] = SensorInfo(actimId, sensorName)
                     val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
                     repoSize += sizeWritten
                     if (newFile) repoNums++

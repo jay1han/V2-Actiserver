@@ -89,6 +89,7 @@ class SensorInfo(
     @Transient private var fileDate: ZonedDateTime = TimeZero
 ){
     @Transient lateinit var fileHandle: BufferedWriter
+    @Transient private var lastDateTime: ZonedDateTime = TimeZero
 
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId)}
 
@@ -142,6 +143,19 @@ class SensorInfo(
         fileHandle = BufferedWriter(FileWriter(file))
         fileHandle.append("\n")
         printLog("Start data file $fileName at $fileDate")
+    }
+
+    fun countPoints(msgDateTime: ZonedDateTime, cycleNanoseconds: Long, count: Int): Int {
+        var points = count
+        if (lastDateTime != TimeZero) {
+            points = Duration.between(lastDateTime, msgDateTime)
+                .dividedBy(Duration.ofNanos(cycleNanoseconds))
+                .toInt()
+            lastDateTime += Duration.ofNanos(cycleNanoseconds * points)
+        } else {
+            lastDateTime = msgDateTime
+        }
+        return points
     }
 
     fun writeData(dateTime: ZonedDateTime, textStr: String): Pair<Boolean, Int> {
