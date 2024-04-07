@@ -124,9 +124,11 @@ class Actimetre(
                     continue
                 }
 
-                val sensorName = "${'1' + (sensorHeader[3].toInt() shr 7)}${'A' + ((sensorHeader[3].toInt() and 0x40) shr 6)}"
-                if (!sensorList.containsKey(sensorName))
+                val sensorName = "${'1' + ((sensorHeader[3].toInt() and 0x80) shr 7)}${'A' + ((sensorHeader[3].toInt() and 0x40) shr 6)}"
+                if (!sensorList.containsKey(sensorName)) {
+                    printLog("${actimName()} start sensor $sensorName")
                     sensorList[sensorName] = SensorInfo(actimId, sensorName)
+                }
 
                 rssi = (sensorHeader[4].toInt() shr 5) and 0x07
                 val samplingMode = (sensorHeader[4].toInt() shr 3) and 0x03
@@ -161,30 +163,36 @@ class Actimetre(
                     }
                 }
 
-                val sensorBuffer = ByteBuffer.allocate(dataLength * count)
-                val readLength = readInto(sensorBuffer)
-                if (readLength != dataLength * count) {
-                    printLog("${actimName()} Data length $readLength != ${dataLength * count}")
-                    break
+                if (count > 0) {
+                    val sensorBuffer = ByteBuffer.allocate(dataLength * count)
+                    val readLength = readInto(sensorBuffer)
+                    if (readLength != dataLength * count) {
+                        printLog("${actimName()} Data length $readLength != ${dataLength * count}")
+                        break
+                    }
+                    val sensorData = sensorBuffer.array().toUByteArray()
+
+                    for (index in 0 until count) {
+                        val record = RecordV3(
+                            samplingMode,
+                            sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
+                            bootEpoch, msgBootEpoch,
+                            msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
+                        )
+                        val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
+                        repoSize += sizeWritten
+                        if (newFile) repoNums++
+                        if (newFile or (repoSize % 100_000 < 64)) {
+                            htmlData()
+                        }
+                    }
+                } else {
+                    printLog("${actimName()} sent 0-data")
                 }
-                val sensorData = sensorBuffer.array().toUByteArray()
+
                 totalPoints += sensorList[sensorName]!!.countPoints(msgDateTime, cycleNanoseconds, count)
                 samplePoints += count
                 rating = 1.0 - (samplePoints.toDouble() / totalPoints.toDouble())
-
-                for (index in 0 until count) {
-                    val record = RecordV3(samplingMode,
-                        sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
-                        bootEpoch, msgBootEpoch,
-                        msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
-                    )
-                    val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
-                    repoSize += sizeWritten
-                    if (newFile) repoNums++
-                    if (newFile or (repoSize % 100_000 < 64)) {
-                        htmlData()
-                    }
-                }
             }
         } else {
             while (true) {
