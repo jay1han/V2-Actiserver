@@ -192,7 +192,8 @@ class Actimetre(
 
                 totalPoints += sensorList[sensorName]!!.countPoints(msgDateTime, cycleNanoseconds, count)
                 samplePoints += count
-                rating = 1.0 - (samplePoints.toDouble() / totalPoints.toDouble())
+                if (totalPoints > 0)
+                    rating = 1.0 - (samplePoints.toDouble() / totalPoints.toDouble())
             }
         } else {
             while (true) {
