@@ -156,6 +156,8 @@ class Actimetre(
                     cycleNanoseconds = 1_000_000_000L / frequency
                     totalPoints = 0
                     samplePoints = 0
+                    repoSize = 0
+                    repoNums = 0
 
                     Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
@@ -187,12 +189,12 @@ class Actimetre(
                         }
                     }
                 } else {
-                    printLog("${actimName()} sent 0-data")
+//                    printLog("${actimName()}-$sensorName sent 0-data")
                 }
 
                 totalPoints += sensorList[sensorName]!!.countPoints(msgDateTime, cycleNanoseconds, count)
                 samplePoints += count
-                if (totalPoints > 0)
+                if (totalPoints > 0 && samplePoints <= totalPoints)
                     rating = 1.0 - (samplePoints.toDouble() / totalPoints.toDouble())
             }
         } else {
