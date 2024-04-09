@@ -120,7 +120,7 @@ class Actimetre(
                     val messageBuffer = ByteBuffer.allocate(messageLen)
                     readInto(messageBuffer)
                     val messageText = messageBuffer.array().decodeToString()
-                    printLog("${actimName()} ERROR:$messageText")
+                    printLog("${actimName()} REPORT:$messageText")
                     continue
                 }
 
