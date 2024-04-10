@@ -324,7 +324,7 @@ class Actimetre(
         var result = ""
         for (port in IntRange(1, 2)) {
             var portStr = "$port"
-            for (address in 'A'..'B') {
+            for (address in listOf('A', 'B', 'a', 'b')) {
                 if (sensorList.containsKey("$port$address")) {
                     portStr += "$address"
                 }

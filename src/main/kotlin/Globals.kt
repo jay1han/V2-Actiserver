@@ -307,8 +307,12 @@ fun UByte.parseSensorBits(): String {
         var portStr = "%d".format(port + 1)
         for (address in 0..1) {
             val bitMask = 1 shl (port * 4 + address)
+            val sensorType = 1 shl (port * 4 + address + 1)
             if ((this.toInt() and bitMask) != 0) {
-                portStr += "%c".format('A' + address)
+                if ((this.toInt() and sensorType) != 0)
+                    portStr += "%c".format('a' + address)
+                else
+                    portStr += "%c".format('A' + address)
             }
         }
         if (portStr.length > 1) {
