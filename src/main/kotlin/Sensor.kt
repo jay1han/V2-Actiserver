@@ -90,9 +90,8 @@ class SensorInfo(
 ){
     @Transient lateinit var fileHandle: BufferedWriter
     @Transient private var lastDateTime: ZonedDateTime = TimeZero
-    @Transient private var sensorID = sensorId.uppercase()
 
-    private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorID)}
+    private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId.uppercase())}
 
     private fun findDataFile(atDateTime: ZonedDateTime): Boolean {
         diskCapa()
@@ -102,7 +101,7 @@ class SensorInfo(
         var lastRepoDate = TimeZero
         Path(REPO_ROOT).forEachDirectoryEntry {
             val thisRepoFile = it.fileName.toString()
-            if ("Actim[0-9]{4}-[12][abAB]_[0-9]{14}\\.csv".toRegex().matches(thisRepoFile)) {
+            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14}\\.csv".toRegex().matches(thisRepoFile)) {
                 val thisRepoDate = thisRepoFile.parseFileDate()
                 if (sensorName() == thisRepoFile.substring(0, 12) &&
                     (thisRepoDate <= atDateTime)) {

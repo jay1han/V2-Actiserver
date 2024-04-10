@@ -124,10 +124,12 @@ class Actimetre(
                     continue
                 }
 
-                val sensorName = "${'1' + ((sensorHeader[3].toInt() and 0x80) shr 7)}${'A' + ((sensorHeader[3].toInt() and 0x40) shr 6)}"
+                val sensorName = "${'1' + ((sensorHeader[3].toInt() and 0x80) shr 7)}" +
+                        "${(if ((sensorHeader[5].toInt() and 0x80) != 0) 'a' else 'A') +
+                                ((sensorHeader[3].toInt() and 0x40) shr 6)}"
                 if (!sensorList.containsKey(sensorName)) {
-                    printLog("${actimName()} start sensor $sensorName", 1)
-                    sensorList[sensorName] = SensorInfo(actimId, sensorName)
+                    printLog("${actimName()} undeclared sensor $sensorName", 1)
+                    continue
                 }
 
                 rssi = (sensorHeader[4].toInt() shr 5) and 0x07
@@ -140,7 +142,7 @@ class Actimetre(
 
                 val msgBootEpoch = sensorHeader.getInt3At(0).toLong()
                 val count = sensorHeader[3].toInt() and 0x3F
-                val msgMicros = sensorHeader.getInt3At(5).toLong()
+                val msgMicros = sensorHeader.getInt3At20(5).toLong()
                 val msgDateTime = ZonedDateTime.ofInstant(
                     Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
                     ZoneId.of("Z")

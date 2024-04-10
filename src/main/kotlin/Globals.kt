@@ -301,6 +301,12 @@ fun UByteArray.getInt3At(index: Int): Int {
             this[index + 2].toInt()
 }
 
+fun UByteArray.getInt3At20(index: Int): Int {
+    return ((this[index].toInt() and 0x0F) shl 16) or
+            (this[index + 1].toInt() shl 8) or
+            this[index + 2].toInt()
+}
+
 fun UByte.parseSensorBits(): String {
     var sensorStr = ""
     for (port in 0..1) {
