@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "330"
+const val VERSION_STRING = "331"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -307,7 +307,7 @@ fun UByte.parseSensorBits(): String {
         var portStr = "%d".format(port + 1)
         for (address in 0..1) {
             val bitMask = 1 shl (port * 4 + address)
-            val sensorType = 1 shl (port * 4 + address + 1)
+            val sensorType = 1 shl (port * 4 + address + 2)
             if ((this.toInt() and bitMask) != 0) {
                 if ((this.toInt() and sensorType) != 0)
                     portStr += "%c".format('a' + address)

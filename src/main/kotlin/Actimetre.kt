@@ -364,7 +364,10 @@ class Actimetre(
         for (port in 0..1) {
             for (address in 0..1) {
                 val bitMask = 1 shl (port * 4 + address)
-                val sensorName = "%d%c".format(port + 1, 'A' + address)
+                val typeMask = 1 shl (port * 4 + address + 2)
+                val sensorName = "%d%c".format(port + 1,
+                    if ((sensorBits.toInt() and typeMask) != 0) 'a' + address
+                    else 'A' + address)
                 if ((sensorBits.toInt() and bitMask) != 0) {
                     sensorList[sensorName] = SensorInfo(actimId, sensorName)
                     nSensors += 1
