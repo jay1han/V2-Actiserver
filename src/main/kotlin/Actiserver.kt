@@ -21,7 +21,7 @@ fun main(args: Array<String>) {
     println("$serverName WAN IP=$myIp, server $myIfname channel $myChannel IP=$serverAddress")
 
     if (netConfigOK == "") {
-        printLog("$serverName started")
+        printLog("$serverName started", 1)
 
         if (options.test) println("Test mode")
         println("REPO_ROOT = $REPO_ROOT. MAX_REPO_SIZE = $MAX_REPO_SIZE, MAX_REPO_TIME = $MAX_REPO_TIME")
@@ -67,14 +67,14 @@ fun newClient (channel: ByteChannel) {
 
     try {
         inputLen = channel.read(messageBuffer)
-        printLog("Init: read $inputLen")
+        printLog("Init: read $inputLen", 1)
     } catch (e: Throwable) {
-        printLog("newClient:$e")
+        printLog("newClient:$e", 1)
         return
     }
 
     if (inputLen != INIT_LENGTH) {
-        printLog("Malformed first message, only $inputLen bytes")
+        printLog("Malformed first message, only $inputLen bytes", 1)
         return
     }
 
@@ -92,7 +92,7 @@ fun newClient (channel: ByteChannel) {
         ZoneId.of("Z"))
     printLog("Actimetre MAC=$mac type $boardType version $version sensors " +
             sensorBits.parseSensorBits() +
-            " booted at ${bootTime.prettyFormat()}")
+            " booted at ${bootTime.prettyFormat()}", 1)
 
     val actimId = synchronized(Registry) {Registry[mac] ?: 0}
     var newActimId = actimId
@@ -117,30 +117,30 @@ fun newClient (channel: ByteChannel) {
                         fileSize += it.fileSize()
                         it.toFile().delete()
                     }
-                    printLog("Removed $fileNums files ($fileSize bytes) of old Actim%04d".format(newActimId))
+                    printLog("Removed $fileNums files ($fileSize bytes) of old Actim%04d".format(newActimId), 1)
                 } catch(e:Throwable) {
-                    printLog("Clean:$e")
+                    printLog("Clean:$e", 1)
                 }
                 " CLEAN"
             } else ""
-            printLog("New Actim%04d for MAC=$mac".format(newActimId) + isNew)
+            printLog("New Actim%04d for MAC=$mac".format(newActimId) + isNew, 1)
         } else {
-            printLog("Received error from Acticentral, denying Actimetre")
+            printLog("Received error from Acticentral, denying Actimetre", 1)
             return
         }
     } else {
         if (actimId in Self.actimetreList.keys) {
-            printLog("Actim%04d already running, close old channel".format(actimId))
+            printLog("Actim%04d already running, close old channel".format(actimId), 1)
             Self.actimetreList[actimId]!!.dies()
         } else {
-            printLog("Returning Actim%04d".format(actimId))
+            printLog("Returning Actim%04d".format(actimId), 1)
         }
     }
 
     val a = Self.updateActimetre(newActimId, mac, boardType, version, bootTime, sensorBits)
     printLog("${a.actimName()} type $boardType version $version sensors " +
             sensorBits.parseSensorBits() +
-            " booted at ${bootTime.prettyFormat()}")
+            " booted at ${bootTime.prettyFormat()}", 1)
     selfToCentral()
 
     val outputBuffer = ByteBuffer.allocate(6)
@@ -156,7 +156,7 @@ fun newClient (channel: ByteChannel) {
     thread(start=true, name="%04d".format(newActimId), priority=4) {
         a.run(channel)
         a.dies()
-        printLog("Cleaning up ${a.actimName()}")
+        printLog("Cleaning up ${a.actimName()}", 1)
         selfToCentral()
         channel.close()
         println("${a.actimName()} Closed channel")
@@ -164,7 +164,7 @@ fun newClient (channel: ByteChannel) {
 }
 
 fun mainLoop() {
-    printLog("Main Loop")
+    printLog("Main Loop", 1)
     var nextReport = now().plusSeconds(ACTIS_CHECK_SECS)
     while (true) {
         val now = now()

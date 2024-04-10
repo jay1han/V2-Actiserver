@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "323"
+const val VERSION_STRING = "330"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -33,7 +33,8 @@ const val CENTRAL_BIN = "/bin/acticentral.py?"
 val ACTIM_DEAD_TIME:  Duration = Duration.ofSeconds(3)
 val ACTIM_BOOT_TIME:  Duration = Duration.ofSeconds(5)
 const val ACTIS_CHECK_SECS = 15L
-const val LOG_SIZE = 1_000_000
+var LOG_SIZE = 10_000_000
+var VERBOSITY = 10
 
 var options = Options("")
 
@@ -80,6 +81,8 @@ class Options(configFileName: String = "") {
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
                         "secret_key" -> SECRET_KEY = value
                         "cleanup_exec" -> CLEANUP_EXEC = value
+                        "log_size" -> LOG_SIZE = value.replace("_", "").toInt()
+                        "verbosity" -> VERBOSITY = value.toInt()
                         "options" -> for (c in value.toCharArray()) {
                             when (c) {
                                 't' -> test = true
@@ -90,7 +93,7 @@ class Options(configFileName: String = "") {
                 }
             }
         } catch (e: Throwable) {
-            printLog("Config:$e")
+            printLog("Config:$e", 1)
         }
     }
 }
@@ -188,7 +191,7 @@ fun diskCapa() {
                 }
             }
         }
-        printLog("Disk full, deleting $oldestFile")
+        printLog("Disk full, deleting $oldestFile", 1)
         if (oldestFile != "") {
             Path("$REPO_ROOT/$oldestFile").toFile().delete()
             disk = Disk()
@@ -197,18 +200,19 @@ fun diskCapa() {
 
     if (disk.free < disk.size / 10 && CLEANUP_EXEC != "") {
         val cleanup = CLEANUP_EXEC.runCommand()
-        printLog("Disk cleaup: $cleanup")
+        printLog("Disk cleaup: $cleanup", 1)
         disk = Disk()
     }
 
     Self.df(disk.size, disk.free)
     printLog("Disk size ${Self.diskSize}, free ${Self.diskFree} (%.1f%%)"
-        .format(100.0 * Self.diskFree / Self.diskSize))
+        .format(100.0 * Self.diskFree / Self.diskSize), 10)
 }
 
 lateinit var Self: Actiserver
 
-fun printLog(message: String) {
+fun printLog(message: String, verbosity: Int = 1) {
+    if (verbosity > VERBOSITY) return
     val append = File(LOG_FILE).length() < LOG_SIZE
     with (PrintWriter(FileWriter(LOG_FILE, append))) {
         println("[${now().prettyFormat()}] $message")

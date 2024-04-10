@@ -93,11 +93,11 @@ class Actimetre(
                 inputLen += this.channel.read(buffer)
             }
         } catch (e: Throwable) {
-            printLog("${actimName()}:$e")
+            printLog("${actimName()}:$e", 1)
             return 0
         }
         if (inputLen != buffer.capacity()) {
-            printLog("${actimName()} sent $inputLen bytes < ${buffer.capacity()}")
+            printLog("${actimName()} sent $inputLen bytes < ${buffer.capacity()}", 1)
         }
         return inputLen
     }
@@ -109,7 +109,7 @@ class Actimetre(
                 val headerBuffer = ByteBuffer.allocate(HEADERV3_LENGTH)
                 val inputLen = readInto(headerBuffer)
                 if (inputLen != HEADERV3_LENGTH) {
-                    printLog("${actimName()} received header $inputLen bytes != $HEADERV3_LENGTH")
+                    printLog("${actimName()} received header $inputLen bytes != $HEADERV3_LENGTH", 1)
                     break
                 }
 
@@ -120,13 +120,13 @@ class Actimetre(
                     val messageBuffer = ByteBuffer.allocate(messageLen)
                     readInto(messageBuffer)
                     val messageText = messageBuffer.array().decodeToString()
-                    printLog("${actimName()} REPORT:$messageText")
+                    printLog("${actimName()} REPORT:$messageText", 1)
                     continue
                 }
 
                 val sensorName = "${'1' + ((sensorHeader[3].toInt() and 0x80) shr 7)}${'A' + ((sensorHeader[3].toInt() and 0x40) shr 6)}"
                 if (!sensorList.containsKey(sensorName)) {
-                    printLog("${actimName()} start sensor $sensorName")
+                    printLog("${actimName()} start sensor $sensorName", 1)
                     sensorList[sensorName] = SensorInfo(actimId, sensorName)
                 }
 
@@ -148,7 +148,7 @@ class Actimetre(
 
                 val msgFrequency = sensorHeader[4].toInt() and 0x07
                 if (msgFrequency >= FrequenciesV3.size) {
-                    printLog("${actimName()} Frequency code $msgFrequency out of bounds")
+                    printLog("${actimName()} Frequency code $msgFrequency out of bounds", 1)
                     break
                 }
                 if (frequency != FrequenciesV3[msgFrequency]) {
@@ -169,7 +169,7 @@ class Actimetre(
                     val sensorBuffer = ByteBuffer.allocate(dataLength * count)
                     val readLength = readInto(sensorBuffer)
                     if (readLength != dataLength * count) {
-                        printLog("${actimName()} Data length $readLength != ${dataLength * count}")
+                        printLog("${actimName()} Data length $readLength != ${dataLength * count}", 1)
                         break
                     }
                     val sensorData = sensorBuffer.array().toUByteArray()
@@ -189,7 +189,7 @@ class Actimetre(
                         }
                     }
                 } else {
-//                    printLog("${actimName()}-$sensorName sent 0-data")
+                    printLog("${actimName()}-$sensorName sent 0-data", 1000)
                 }
 
                 totalPoints += sensorList[sensorName]!!.countPoints(msgDateTime, cycleNanoseconds, count)
@@ -202,7 +202,7 @@ class Actimetre(
                 val sensorBuffer = ByteBuffer.allocate(msgLength)
                 val dataLen = readInto(sensorBuffer)
                 if (dataLen != msgLength) {
-                    printLog("Data length $dataLen != $msgLength")
+                    printLog("Data length $dataLen != $msgLength", 1)
                     break
                 }
 
@@ -235,7 +235,7 @@ class Actimetre(
                         .dividedBy(Duration.ofNanos(cycleNanoseconds))
                         .toInt()
                     if (cycles > frequency) {
-//                        printLog("${actimName()} jumped over ${cycles - 1} cycles")
+                        printLog("${actimName()} jumped over ${cycles - 1} cycles", 1000)
                     }
                     totalPoints += cycles
                     samplePoints += 1
@@ -310,7 +310,7 @@ class Actimetre(
         val reqString = CENTRAL_BIN + "action=actimetre-off" +
                 "&serverId=${serverId}&actimId=${actimId}"
         sendHttpRequest(reqString)
-        printLog("${actimName()} dies")
+        printLog("${actimName()} dies", 1)
         for (sensorInfo in sensorList.values) {
             sensorInfo.closeIfOpen()
         }
@@ -341,8 +341,8 @@ class Actimetre(
             if (isDead) return
             printLog(
                 "${actimName()} last seen ${lastSeen.prettyFormat()}, " +
-                        "${Duration.between(lastSeen, now).printSec()} before now ${now.prettyFormat()}"
-            )
+                        "${Duration.between(lastSeen, now).printSec()} before now ${now.prettyFormat()}",
+                1)
             if (this::channel.isInitialized) channel.close()
             dies()
         }

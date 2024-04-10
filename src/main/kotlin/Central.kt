@@ -10,12 +10,13 @@ import java.nio.ByteBuffer
 import javax.net.ssl.HttpsURLConnection
 
 fun sendHttpRequest(reqString: String, data: String = ""): String {
-    printLog(reqString + if (data != "") "\ndata=${data.cleanJson()}" else "")
+    printLog(reqString, 10)
+    if (data != "") printLog("\ndata=${data.cleanJson()}", 100)
     val centralURL =
         if (USE_HTTPS) URL("https://$CENTRAL_HOST$reqString&secret=$SECRET_KEY")
         else URL("http://$CENTRAL_HOST$reqString")
 
-    printLog(centralURL.toString())
+    printLog(centralURL.toString(), 100)
 
     try {
         val URLconnection = centralURL.openConnection()
@@ -41,10 +42,10 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
             input.close()
             responseText.trim()
         } else ""
-        printLog("Response[$responseCode]:${if (response.length < 40) response else "[${response.length}]"}")
+        printLog("Response[$responseCode]:${if (response.length < 40) response else "[${response.length}]"}", 10)
         return response
     } catch(e: Throwable) {
-        printLog("httpRequest:$e")
+        printLog("httpRequest:$e", 1)
     }
     return ""
 }
@@ -58,7 +59,7 @@ fun selfToCentral() {
                     "Actim%04d".format(it) + Self.actimetreList[it]?.let {
                         "@${it.frequency}" + "(${it.sensorStr()})" + "%.3f%%".format(it.rating * 100.0)
                     }
-                })
+                }, 1)
         val reqString = CENTRAL_BIN + "action=actiserver&serverId=$serverId"
         val data = Json.encodeToString(Self.toCentral())
         val responseText = sendHttpRequest(reqString, data)
@@ -66,13 +67,13 @@ fun selfToCentral() {
             val actimId = responseText.substring(1).substringBefore(':').toInt()
             val command = responseText.substring(1).substringAfter(':').toInt()
             if (actimId in Self.actimetreList.keys) {
-                printLog("Send command $command to Actimetre $actimId")
+                printLog("Send command $command to Actimetre $actimId", 1)
                 val actim = Self.actimetreList[actimId]!!
                 val commandBuffer = ByteBuffer.allocate(1)
                 commandBuffer.array()[0] = command.toByte()
                 actim.channel.write(commandBuffer)
             } else {
-                printLog("No Actimetre $actimId to send $command to")
+                printLog("No Actimetre $actimId to send $command to", 1)
             }
         } else {
             if (responseText != "") {

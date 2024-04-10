@@ -129,7 +129,7 @@ class SensorInfo(
             file.setWritable(true, false)
             fileHandle = BufferedWriter(FileWriter(file, true))
             fileHandle.append("\n")
-            printLog("Continue data file $lastRepoFile")
+            printLog("Continue data file $lastRepoFile", 10)
         }
         return false
     }
@@ -142,7 +142,7 @@ class SensorInfo(
         file.setWritable(true, false)
         fileHandle = BufferedWriter(FileWriter(file))
         fileHandle.append("\n")
-        printLog("Start data file $fileName at $fileDate")
+        printLog("Start data file $fileName at $fileDate", 10)
     }
 
     fun countPoints(msgDateTime: ZonedDateTime, cycleNanoseconds: Long, count: Int): Int {
@@ -187,7 +187,7 @@ class SensorInfo(
             try {
                 fileHandle.close()
             } catch (e: Throwable) {
-                printLog("Close file:$e")
+                printLog("Close file:$e", 10)
             }
             diskCapa()
         }
