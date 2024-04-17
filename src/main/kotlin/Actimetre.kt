@@ -198,6 +198,10 @@ class Actimetre(
                 samplePoints += count
                 if (totalPoints > 0 && samplePoints <= totalPoints)
                     rating = 1.0 - (samplePoints.toDouble() / totalPoints.toDouble())
+                if (totalPoints > 60 * frequency && rating > 20.0) {
+                    printLog("${actimName()} unreliable, restarting", 1)
+                    break
+                }
             }
         } else {
             while (true) {

@@ -67,7 +67,7 @@ fun selfToCentral() {
             val actimId = responseText.substring(1).substringBefore(':').toInt()
             val command = responseText.substring(1).substringAfter(':').toInt()
             if (actimId in Self.actimetreList.keys) {
-                printLog("Send command $command to Actimetre $actimId", 1)
+                printLog("Send command ${"0x02X".format(command)} to Actimetre $actimId", 1)
                 val actim = Self.actimetreList[actimId]!!
                 val commandBuffer = ByteBuffer.allocate(1)
                 commandBuffer.array()[0] = command.toByte()
