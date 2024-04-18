@@ -84,6 +84,7 @@ class Actimetre(
     var rssi: Int = 0
     var repoNums: Int = 0
     var repoSize: Long = 0
+    private var htmlUpdate: ZonedDateTime = TimeZero
 
     private fun readInto(buffer: ByteBuffer): Int {
         var inputLen = 0
@@ -186,9 +187,7 @@ class Actimetre(
                         val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
                         repoSize += sizeWritten
                         if (newFile) repoNums++
-                        if (newFile or (repoSize % 100_000 < 64)) {
-                            htmlData()
-                        }
+                        htmlData(newFile)
                     }
                 } else {
                     printLog("${actimName()}-$sensorName sent 0-data", 1000)
@@ -260,53 +259,61 @@ class Actimetre(
                     val (newFile, sizeWritten) = sensorList[record.sensorId]!!.writeData(record)
                     repoSize += sizeWritten
                     if (newFile) repoNums++
-                    if (newFile or (repoSize % 100_000 < 64)) {
-                        htmlData()
-                    }
+                    htmlData(newFile)
                     index += DATA_LENGTH
                 }
             }
         }
     }
 
-    fun htmlData() {
-        val repoList: MutableMap<String, MutableList<String>> = mutableMapOf()
-        Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
-            val fileDate = it.fileName.toString().parseFileDate().prettyFormat()
-            val sensorStr = it.fileName.toString().substring(10,12)
-            val fileSize = it.fileSize().printSize()
-            if (repoList.get(sensorStr) == null) repoList[sensorStr] = mutableListOf()
-            repoList[sensorStr]!!.add("""
-            <td>$fileDate</td><td>$fileSize</td>
-            <td><a href="/${it.fileName}">${it.fileName}</a></td>                
-            """.trimIndent())
-        }
+    fun htmlData(force:Boolean) {
+        if (force || lastSeen > htmlUpdate) {
+            htmlUpdate = lastSeen.plusSeconds(60)
 
-        val htmlFile = FileWriter("$REPO_ROOT/index%04d.html".format(actimId))
-        htmlFile.write("""
-            <html><head>
-            <style>
-            body {font-family:"Arial", "Helvetica", "Verdana", "Calibri", sans-serif; hyphens:manual;}
-            table,th,tr,td {border:1px solid black; padding:0.3em; margin:0; border-collapse:collapse; text-align:center;}
-            </style>
-            <title>${actimName()} data files</title></head><body>
-            <h1>${actimName()} data files</h1>
-            <p>Files are locally stored on ${Self.serverName()}, IP=${Self.ip}</p>
-            <p>Right-click a file name and choose "Download link" to retrieve the file</p>
-            <table><tr><th>Sensor</th><th>Date created</th><th>Size</th><th>File name</th></tr>
-        """.trimIndent())
-        for (sensor in repoList.keys.sorted()) {
-            val lines = repoList[sensor]!!.sorted()
-            htmlFile.write("<tr><td rowspan=${lines.size}>$sensor</td>\n")
-            htmlFile.write("${lines[0]}</tr>\n")
-            for (line in lines.slice(1 until lines.size)) {
-                htmlFile.write("<tr>$line</tr>\n")
+            val repoList: MutableMap<String, MutableList<String>> = mutableMapOf()
+            Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+                val fileDate = it.fileName.toString().parseFileDate().prettyFormat()
+                val sensorStr = it.fileName.toString().substring(10, 12)
+                val fileSize = it.fileSize().printSize()
+                if (repoList.get(sensorStr) == null) repoList[sensorStr] = mutableListOf()
+                repoList[sensorStr]!!.add(
+                    """
+                <td>$fileDate</td><td>$fileSize</td>
+                <td><a href="/${it.fileName}">${it.fileName}</a></td>                
+                """.trimIndent()
+                )
             }
+
+            val htmlFile = FileWriter("$REPO_ROOT/index%04d.html".format(actimId))
+            htmlFile.write(
+                """
+                <html><head>
+                <style>
+                body {font-family:"Arial", "Helvetica", "Verdana", "Calibri", sans-serif; hyphens:manual;}
+                table,th,tr,td {border:1px solid black; padding:0.3em; margin:0; border-collapse:collapse; text-align:center;}
+                </style>
+                <title>${actimName()} data files</title></head><body>
+                <h1>${actimName()} data files</h1>
+                <p>Files are locally stored on ${Self.serverName()}, IP=${Self.ip}</p>
+                <p>Right-click a file name and choose "Download link" to retrieve the file</p>
+                <table><tr><th>Sensor</th><th>Date created</th><th>Size</th><th>File name</th></tr>
+            """.trimIndent()
+            )
+            for (sensor in repoList.keys.sorted()) {
+                val lines = repoList[sensor]!!.sorted()
+                htmlFile.write("<tr><td rowspan=${lines.size}>$sensor</td>\n")
+                htmlFile.write("${lines[0]}</tr>\n")
+                for (line in lines.slice(1 until lines.size)) {
+                    htmlFile.write("<tr>$line</tr>\n")
+                }
+            }
+            htmlFile.write(
+                """
+                </table></body></html>
+            """.trimIndent()
+            )
+            htmlFile.close()
         }
-        htmlFile.write("""
-            </table></body></html>
-        """.trimIndent())
-        htmlFile.close()
     }
 
     fun dies() {
