@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "333"
+const val VERSION_STRING = "340"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -183,7 +183,7 @@ fun diskCapa() {
         var oldestFile = ""
         Path(REPO_ROOT).forEachDirectoryEntry {
             val thisRepoFile = it.fileName.toString()
-            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14}\\.csv".toRegex().matches(thisRepoFile)) {
+            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
                 val thisRepoDate = thisRepoFile.parseFileDate()
                 if (thisRepoDate < oldestTime) {
                     oldestFile = thisRepoFile
@@ -234,6 +234,7 @@ fun loadRegistry(registryText: String) {
 fun String.fullName(): String {return "$REPO_ROOT/$this"}
 
 private val actiFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+private val fileFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss")
 private val prettyFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
 private val csvFormat:    DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd,HH:mm:ss")
 
@@ -269,12 +270,24 @@ fun ZonedDateTime.actiFormat(): String {
     return this.format(actiFormat)
 }
 
+fun ZonedDateTime.fileFormat(): String {
+    return this.format(fileFormat)
+}
+
 fun String.parseActiFormat(): ZonedDateTime {
     return ZonedDateTime.of(LocalDateTime.parse(this, actiFormat), ZoneId.of("Z"))
 }
 
+fun String.parseFileFormat(): ZonedDateTime {
+    return ZonedDateTime.of(LocalDateTime.parse(this, fileFormat), ZoneId.of("Z"))
+}
+
 fun String.parseFileDate(): ZonedDateTime {
-    return this.substring(13,27).parseActiFormat()
+    if ("[0-9]{14}".toRegex().matches(this.substring(13,27))) {
+        return this.substring(13,27).parseActiFormat()
+    } else {
+        return this.substring(13,30).parseFileFormat()
+    }
 }
 
 fun Long.printSize(): String {

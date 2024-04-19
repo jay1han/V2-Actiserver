@@ -35,10 +35,19 @@ private fun makeAccelStr(buffer: UByteArray): String{
 private fun makeGyroStr(buffer: UByteArray): String {
     val rawX = makeInt(buffer[0], buffer[1])
     val rawY = makeInt(buffer[2], buffer[3])
-    return arrayOf(
-        rawX / 131.0f,
-        rawY / 131.0f
-    ).joinToString(separator = ",") { "%+07.3f".format(it) }
+    if (buffer.size > 4) {
+        val rawZ = makeInt(buffer[4], buffer[5])
+        return arrayOf(
+            rawX / 131.0f,
+            rawY / 131.0f,
+            rawZ / 131.0f
+        ).joinToString(separator = ",") { "%+07.3f".format(it) }
+    } else {
+        return arrayOf(
+            rawX / 131.0f,
+            rawY / 131.0f
+        ).joinToString(separator = ",") { "%+07.3f".format(it) }
+    }
 }
 
 class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Long) {
@@ -54,7 +63,14 @@ class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootE
             accelStr + "," + gyroStr
 }
 
-class RecordV3(samplingMode: Int, buffer: UByteArray, bootEpoch: Long, msgBootEpoch: Long, msgMicros: Long) {
+class RecordV3(
+    v34: Boolean,
+    samplingMode: Int,
+    buffer: UByteArray,
+    bootEpoch: Long,
+    msgBootEpoch: Long,
+    msgMicros: Long
+) {
     val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
         Instant.ofEpochSecond(bootEpoch + msgBootEpoch,
             msgMicros * 1_000L),
@@ -64,14 +80,18 @@ class RecordV3(samplingMode: Int, buffer: UByteArray, bootEpoch: Long, msgBootEp
 
     init {
         var accelStr = "0,0,0"
-        var gyroStr = "0,0"
+        var gyroStr = if (v34) "0,0,0" else "0,0"
 
         when (samplingMode) {
             1 -> accelStr = makeAccelStr(buffer.sliceArray(0..5))
-            2 -> gyroStr = makeGyroStr(buffer.sliceArray(0..3))
+            2 -> {
+                if (v34) gyroStr = makeGyroStr(buffer.sliceArray(0..5))
+                else gyroStr = makeGyroStr(buffer.sliceArray(0..3))
+            }
             else -> {
                 accelStr = makeAccelStr(buffer.sliceArray(0..5))
-                gyroStr = makeGyroStr(buffer.sliceArray(6..9))
+                if (v34) gyroStr = makeGyroStr(buffer.sliceArray(6..11))
+                else gyroStr = makeGyroStr(buffer.sliceArray(6..9))
             }
         }
         textStr = dateTime.csvFormat() +
@@ -101,7 +121,7 @@ class SensorInfo(
         var lastRepoDate = TimeZero
         Path(REPO_ROOT).forEachDirectoryEntry {
             val thisRepoFile = it.fileName.toString()
-            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14}\\.csv".toRegex().matches(thisRepoFile)) {
+            if ("Actim[0-9]{4}-[12][AB]_[-0-9_]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
                 val thisRepoDate = thisRepoFile.parseFileDate()
                 if (sensorName() == thisRepoFile.substring(0, 12) &&
                     (thisRepoDate <= atDateTime)) {
@@ -135,7 +155,7 @@ class SensorInfo(
     }
 
     private fun newDataFile(atDateTime: ZonedDateTime) {
-        fileName = sensorName() + "_" + atDateTime.actiFormat() + ".csv"
+        fileName = sensorName() + "_" + atDateTime.fileFormat() + ".csv"
         fileDate = atDateTime
         fileSize = 0
         val file = File(fileName.fullName())
