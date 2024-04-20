@@ -25,6 +25,8 @@ var ACTI_PORT = 2883
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 var CLEANUP_EXEC = ""
+var SYNC_EXEC = ""
+var INCLUDE_GZ = false
 var SECRET_KEY: String = "YouDontKnowThis"
 
 var REPO_ROOT = "/media/actimetre"
@@ -81,6 +83,8 @@ class Options(configFileName: String = "") {
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
                         "secret_key" -> SECRET_KEY = value
                         "cleanup_exec" -> CLEANUP_EXEC = value
+                        "sync_exec" -> SYNC_EXEC = value
+                        "include_gz" -> INCLUDE_GZ = value.toBoolean()
                         "log_size" -> LOG_SIZE = value.replace("_", "").toInt()
                         "verbosity" -> VERBOSITY = value.toInt()
                         "options" -> for (c in value.toCharArray()) {

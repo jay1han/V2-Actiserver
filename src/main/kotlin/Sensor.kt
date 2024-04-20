@@ -29,24 +29,24 @@ private fun makeAccelStr(buffer: UByteArray): String{
         rawX / 8192.0f,
         rawY / 8192.0f,
         rawZ / 8192.0f
-    ).joinToString(separator = ",") { "%+07.4f".format(it) }
+    ).joinToString(separator = ",") { "%+.4f".format(it) }
 }
 
 private fun makeGyroStr(buffer: UByteArray): String {
     val rawX = makeInt(buffer[0], buffer[1])
     val rawY = makeInt(buffer[2], buffer[3])
-    if (buffer.size > 4) {
+    if (buffer.size > 4 && INCLUDE_GZ) {
         val rawZ = makeInt(buffer[4], buffer[5])
         return arrayOf(
             rawX / 131.0f,
             rawY / 131.0f,
             rawZ / 131.0f
-        ).joinToString(separator = ",") { "%+07.3f".format(it) }
+        ).joinToString(separator = ",") { "%+.3f".format(it) }
     } else {
         return arrayOf(
             rawX / 131.0f,
             rawY / 131.0f
-        ).joinToString(separator = ",") { "%+07.3f".format(it) }
+        ).joinToString(separator = ",") { "%+.3f".format(it) }
     }
 }
 
