@@ -37,7 +37,7 @@ class AccelData {
         rawZ = makeInt(buffer[4], buffer[5]) / 8192.0f
         rawStr = "," + arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.4f".format(it) }
         vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
-        vecStr = ",%+.5f".format(vec)
+        vecStr = ",%.5f".format(vec)
         return this
     }
 }
@@ -61,7 +61,7 @@ class GyroData {
                 arrayOf(rawX, rawY).joinToString(separator = ",") { "%+.3f".format(it) }
             }
         vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
-        vecStr = ",%+.4f".format(vec)
+        vecStr = ",%.4f".format(vec)
         return this
     }
 }
