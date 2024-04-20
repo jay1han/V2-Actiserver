@@ -65,6 +65,7 @@ class Actimetre(
     val serverId  : Int = 0,
 ) {
     private var v3 = false
+    private var v34 = false
     var isDead = false
     var bootTime: ZonedDateTime = TimeZero
     var lastSeen: ZonedDateTime = TimeZero
@@ -130,15 +131,16 @@ class Actimetre(
                                 ((sensorHeader[3].toInt() and 0x40) shr 6)}"
                 if (!sensorList.containsKey(sensorName)) {
                     printLog("${actimName()} undeclared sensor $sensorName", 1)
-                    continue
+                    printLog(sensorHeader.dump(), 10)
+                    break
                 }
 
                 rssi = (sensorHeader[4].toInt() shr 5) and 0x07
                 val samplingMode = (sensorHeader[4].toInt() shr 3) and 0x03
                 val dataLength = when (samplingMode) {
                     1 -> 6
-                    2 -> 4
-                    else -> 10
+                    2 -> if (v34) 6 else 4
+                    else -> if (v34) 12 else 10
                 }
 
                 val msgBootEpoch = sensorHeader.getInt3At(0).toLong()
@@ -152,6 +154,7 @@ class Actimetre(
                 val msgFrequency = sensorHeader[4].toInt() and 0x07
                 if (msgFrequency >= FrequenciesV3.size) {
                     printLog("${actimName()} Frequency code $msgFrequency out of bounds", 1)
+                    printLog(sensorHeader.dump(), 10)
                     break
                 }
                 if (frequency != FrequenciesV3[msgFrequency]) {
@@ -178,7 +181,7 @@ class Actimetre(
                     val sensorData = sensorBuffer.array().toUByteArray()
 
                     for (index in 0 until count) {
-                        val record = RecordV3(
+                        val record = RecordV3(v34,
                             samplingMode,
                             sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
                             bootEpoch, msgBootEpoch,
@@ -367,6 +370,7 @@ class Actimetre(
         this.version = version
         this.bootTime = bootTime
         v3 = version >= "300"
+        v34 = version >= "340"
         lastSeen = bootTime
         lastReport = TimeZero
         totalPoints = 0

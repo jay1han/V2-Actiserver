@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "333"
+const val VERSION_STRING = "341"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -25,6 +25,10 @@ var ACTI_PORT = 2883
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 var CLEANUP_EXEC = ""
+var SYNC_EXEC = ""
+var INCLUDE_GZ = false
+var OUTPUT_RAW = true
+var OUTPUT_VECTORS = false
 var SECRET_KEY: String = "YouDontKnowThis"
 
 var REPO_ROOT = "/media/actimetre"
@@ -81,6 +85,10 @@ class Options(configFileName: String = "") {
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
                         "secret_key" -> SECRET_KEY = value
                         "cleanup_exec" -> CLEANUP_EXEC = value
+                        "sync_exec" -> SYNC_EXEC = value
+                        "include_gz" -> INCLUDE_GZ = value.toBoolean()
+                        "output_vectors" -> OUTPUT_VECTORS = value.toBoolean()
+                        "output_raw" -> OUTPUT_RAW = value.toBoolean()
                         "log_size" -> LOG_SIZE = value.replace("_", "").toInt()
                         "verbosity" -> VERBOSITY = value.toInt()
                         "options" -> for (c in value.toCharArray()) {
@@ -183,7 +191,7 @@ fun diskCapa() {
         var oldestFile = ""
         Path(REPO_ROOT).forEachDirectoryEntry {
             val thisRepoFile = it.fileName.toString()
-            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14}\\.csv".toRegex().matches(thisRepoFile)) {
+            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
                 val thisRepoDate = thisRepoFile.parseFileDate()
                 if (thisRepoDate < oldestTime) {
                     oldestFile = thisRepoFile
@@ -234,6 +242,7 @@ fun loadRegistry(registryText: String) {
 fun String.fullName(): String {return "$REPO_ROOT/$this"}
 
 private val actiFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+private val fileFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss")
 private val prettyFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
 private val csvFormat:    DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd,HH:mm:ss")
 
@@ -269,12 +278,24 @@ fun ZonedDateTime.actiFormat(): String {
     return this.format(actiFormat)
 }
 
+fun ZonedDateTime.fileFormat(): String {
+    return this.format(fileFormat)
+}
+
 fun String.parseActiFormat(): ZonedDateTime {
     return ZonedDateTime.of(LocalDateTime.parse(this, actiFormat), ZoneId.of("Z"))
 }
 
+fun String.parseFileFormat(): ZonedDateTime {
+    return ZonedDateTime.of(LocalDateTime.parse(this, fileFormat), ZoneId.of("Z"))
+}
+
 fun String.parseFileDate(): ZonedDateTime {
-    return this.substring(13,27).parseActiFormat()
+    if ("[0-9]{14}".toRegex().matches(this.substring(13,27))) {
+        return this.substring(13,27).parseActiFormat()
+    } else {
+        return this.substring(13,30).parseFileFormat()
+    }
 }
 
 fun Long.printSize(): String {
@@ -326,6 +347,14 @@ fun UByte.parseSensorBits(): String {
         }
     }
     return sensorStr
+}
+
+fun UByteArray.dump(): String {
+    var dumpString = ""
+    for (byte in this) {
+        dumpString += "%02X ".format(byte.toInt())
+    }
+    return dumpString
 }
 
 fun String.cleanJson(): String {
