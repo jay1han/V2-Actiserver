@@ -341,6 +341,14 @@ fun UByte.parseSensorBits(): String {
     return sensorStr
 }
 
+fun UByteArray.dump(): String {
+    var dumpString: String = ""
+    for (byte in this) {
+        dumpString += "%02X ".format(byte.toInt())
+    }
+    return dumpString
+}
+
 fun String.cleanJson(): String {
     return this
         .replace(" ", "")

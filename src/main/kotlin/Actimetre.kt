@@ -131,7 +131,8 @@ class Actimetre(
                                 ((sensorHeader[3].toInt() and 0x40) shr 6)}"
                 if (!sensorList.containsKey(sensorName)) {
                     printLog("${actimName()} undeclared sensor $sensorName", 1)
-                    continue
+                    printLog(sensorHeader.dump(), 10)
+                    break
                 }
 
                 rssi = (sensorHeader[4].toInt() shr 5) and 0x07
@@ -153,6 +154,7 @@ class Actimetre(
                 val msgFrequency = sensorHeader[4].toInt() and 0x07
                 if (msgFrequency >= FrequenciesV3.size) {
                     printLog("${actimName()} Frequency code $msgFrequency out of bounds", 1)
+                    printLog(sensorHeader.dump(), 10)
                     break
                 }
                 if (frequency != FrequenciesV3[msgFrequency]) {
