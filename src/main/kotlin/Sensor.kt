@@ -13,6 +13,8 @@ import java.time.ZonedDateTime
 import kotlin.io.path.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 
 private fun makeInt(msb: UByte, lsb: UByte) : Int {
@@ -21,32 +23,46 @@ private fun makeInt(msb: UByte, lsb: UByte) : Int {
     return integer
 }
 
-private fun makeAccelStr(buffer: UByteArray): String{
-    val rawX = makeInt(buffer[0], buffer[1])
-    val rawY = makeInt(buffer[2], buffer[3])
-    val rawZ = makeInt(buffer[4], buffer[5])
-    return arrayOf(
-        rawX / 8192.0f,
-        rawY / 8192.0f,
-        rawZ / 8192.0f
-    ).joinToString(separator = ",") { "%+.4f".format(it) }
+class AccelData {
+    private var rawX: Float = 0.0f
+    private var rawY: Float = 0.0f
+    private var rawZ: Float = 0.0f
+    var rawStr: String = ",0,0,0"
+    private var vec: Float = 0.0f
+    var vecStr: String = ",0"
+
+    fun read(buffer: UByteArray): AccelData {
+        rawX = makeInt(buffer[0], buffer[1]) / 8192.0f
+        rawY = makeInt(buffer[2], buffer[3]) / 8192.0f
+        rawZ = makeInt(buffer[4], buffer[5]) / 8192.0f
+        rawStr = "," + arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.4f".format(it) }
+        vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
+        vecStr = ",%+.5f".format(vec)
+        return this
+    }
 }
 
-private fun makeGyroStr(buffer: UByteArray): String {
-    val rawX = makeInt(buffer[0], buffer[1])
-    val rawY = makeInt(buffer[2], buffer[3])
-    if (buffer.size > 4 && INCLUDE_GZ) {
-        val rawZ = makeInt(buffer[4], buffer[5])
-        return arrayOf(
-            rawX / 131.0f,
-            rawY / 131.0f,
-            rawZ / 131.0f
-        ).joinToString(separator = ",") { "%+.3f".format(it) }
-    } else {
-        return arrayOf(
-            rawX / 131.0f,
-            rawY / 131.0f
-        ).joinToString(separator = ",") { "%+.3f".format(it) }
+class GyroData {
+    private var rawX = 0.0f
+    private var rawY = 0.0f
+    private var rawZ = 0.0f
+    var rawStr = if (INCLUDE_GZ) ",0,0,0" else ",0,0"
+    private var vec = 0.0f
+    var vecStr = ",0"
+
+    fun read(buffer: UByteArray): GyroData {
+        rawX = makeInt(buffer[0], buffer[1]) / 131.0f
+        rawY = makeInt(buffer[2], buffer[3]) / 131.0f
+        rawZ = if (buffer.size > 4) makeInt(buffer[4], buffer[5]) / 131.0f else 0.0f
+        rawStr = "," +
+            if (INCLUDE_GZ) {
+                arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.3f".format(it) }
+            } else {
+                arrayOf(rawX, rawY).joinToString(separator = ",") { "%+.3f".format(it) }
+            }
+        vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
+        vecStr = ",%+.4f".format(vec)
+        return this
     }
 }
 
@@ -56,11 +72,11 @@ class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootE
         Instant.ofEpochSecond(bootEpoch + msgBootEpoch,
             (msgMillis + diffMillis) * 1_000_000L),
         ZoneId.of("Z"))
-    private val accelStr = makeAccelStr(buffer.sliceArray(2..7))
-    private val gyroStr = makeGyroStr(buffer.sliceArray(8..11))
+    private val accelStr = AccelData().read(buffer.sliceArray(2..7)).rawStr
+    private val gyroStr = GyroData().read(buffer.sliceArray(8..11)).rawStr
     val textStr: String = dateTime.csvFormat() +
-            ".%03d,".format(dateTime.nano / 1000000L) +
-            accelStr + "," + gyroStr
+            ".%03d".format(dateTime.nano / 1000000L) +
+            accelStr + gyroStr
 }
 
 class RecordV3(
@@ -79,24 +95,25 @@ class RecordV3(
     var textStr: String
 
     init {
-        var accelStr = "0,0,0"
-        var gyroStr = if (v34) "0,0,0" else "0,0"
+        val accel = AccelData()
+        val gyro = GyroData()
 
         when (samplingMode) {
-            1 -> accelStr = makeAccelStr(buffer.sliceArray(0..5))
+            1 -> accel.read(buffer.sliceArray(0..5))
             2 -> {
-                if (v34) gyroStr = makeGyroStr(buffer.sliceArray(0..5))
-                else gyroStr = makeGyroStr(buffer.sliceArray(0..3))
+                if (v34) gyro.read(buffer.sliceArray(0..5))
+                else gyro.read(buffer.sliceArray(0..3))
             }
             else -> {
-                accelStr = makeAccelStr(buffer.sliceArray(0..5))
-                if (v34) gyroStr = makeGyroStr(buffer.sliceArray(6..11))
-                else gyroStr = makeGyroStr(buffer.sliceArray(6..9))
+                accel.read(buffer.sliceArray(0..5))
+                if (v34) gyro.read(buffer.sliceArray(6..11))
+                else gyro.read(buffer.sliceArray(6..9))
             }
         }
         textStr = dateTime.csvFormat() +
-                ".%06d,".format(dateTime.nano / 1_000L) +
-                accelStr + "," + gyroStr
+                ".%06d".format(dateTime.nano / 1_000L)
+        if (OUTPUT_RAW) textStr += accel.rawStr + gyro.rawStr
+        if (OUTPUT_VECTORS) textStr += accel.vecStr + gyro.vecStr
     }
 }
 
@@ -178,7 +195,7 @@ class SensorInfo(
         return points
     }
 
-    fun writeData(dateTime: ZonedDateTime, textStr: String): Pair<Boolean, Int> {
+    private fun writeData(dateTime: ZonedDateTime, textStr: String): Pair<Boolean, Int> {
         var newFile = false
         if (!this::fileHandle.isInitialized) newFile = findDataFile(dateTime)
         else if (fileSize > MAX_REPO_SIZE ||

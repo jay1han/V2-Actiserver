@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "340"
+syntaxconst val VERSION_STRING = "341"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -27,6 +27,8 @@ var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 var CLEANUP_EXEC = ""
 var SYNC_EXEC = ""
 var INCLUDE_GZ = false
+var OUTPUT_RAW = true
+var OUTPUT_VECTORS = false
 var SECRET_KEY: String = "YouDontKnowThis"
 
 var REPO_ROOT = "/media/actimetre"
@@ -85,6 +87,8 @@ class Options(configFileName: String = "") {
                         "cleanup_exec" -> CLEANUP_EXEC = value
                         "sync_exec" -> SYNC_EXEC = value
                         "include_gz" -> INCLUDE_GZ = value.toBoolean()
+                        "output_vectors" -> OUTPUT_VECTORS = value.toBoolean()
+                        "output_raw" -> OUTPUT_RAW = value.toBoolean()
                         "log_size" -> LOG_SIZE = value.replace("_", "").toInt()
                         "verbosity" -> VERBOSITY = value.toInt()
                         "options" -> for (c in value.toCharArray()) {
@@ -346,7 +350,7 @@ fun UByte.parseSensorBits(): String {
 }
 
 fun UByteArray.dump(): String {
-    var dumpString: String = ""
+    var dumpString = ""
     for (byte in this) {
         dumpString += "%02X ".format(byte.toInt())
     }
