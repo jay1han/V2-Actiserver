@@ -86,6 +86,8 @@ class Actimetre(
     var repoNums: Int = 0
     var repoSize: Long = 0
     private var htmlUpdate: ZonedDateTime = TimeZero
+    private val projectPath = "Project%02d".format(Projects[actimId] ?: 0)
+    private val projectDir = Path("$REPO_ROOT/$projectPath")
 
     private fun readInto(buffer: ByteBuffer): Int {
         var inputLen = 0
@@ -274,7 +276,7 @@ class Actimetre(
             htmlUpdate = lastSeen.plusSeconds(60)
 
             val repoList: MutableMap<String, MutableList<String>> = mutableMapOf()
-            Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+            projectDir.forEachDirectoryEntry("${actimName()}*") {
                 val fileDate = it.fileName.toString().parseFileDate().prettyFormat()
                 val sensorStr = it.fileName.toString().substring(10, 12)
                 val fileSize = it.fileSize().printSize()
@@ -282,12 +284,12 @@ class Actimetre(
                 repoList[sensorStr]!!.add(
                     """
                 <td>$fileDate</td><td>$fileSize</td>
-                <td><a href="/${it.fileName}">${it.fileName}</a></td>                
+                <td><a href="/$projectPath/${it.fileName}">${it.fileName}</a></td>                
                 """.trimIndent()
                 )
             }
 
-            val htmlFile = FileWriter("$REPO_ROOT/index%04d.html".format(actimId))
+            val htmlFile = FileWriter("index.html".toFile(projectDir))
             htmlFile.write(
                 """
                 <html><head>
@@ -297,7 +299,7 @@ class Actimetre(
                 </style>
                 <title>${actimName()} data files</title></head><body>
                 <h1>${actimName()} data files</h1>
-                <p>Files are locally stored on ${Self.serverName()}, IP=${Self.ip}</p>
+                <p>Files are locally stored on ${Self.serverName()}, IP=${Self.ip}, under $REPO_ROOT/$projectPath/</p>
                 <p>Right-click a file name and choose "Download link" to retrieve the file</p>
                 <table><tr><th>Sensor</th><th>Date created</th><th>Size</th><th>File name</th></tr>
             """.trimIndent()

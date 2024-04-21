@@ -11,13 +11,14 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
+import java.nio.file.Path
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "345"
+const val VERSION_STRING = "346"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -255,7 +256,7 @@ fun loadProjects(data: String) {
     printLog(Projects.toString(), 1)
 }
 
-fun String.fullName(): String {return "$REPO_ROOT/$this"}
+fun String.toFile(projectDir: Path): File {return Path(projectDir.toString(), this).toFile()}
 
 private val actiFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
 private val fileFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss")

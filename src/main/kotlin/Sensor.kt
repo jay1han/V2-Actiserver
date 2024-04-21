@@ -1,18 +1,12 @@
 @file:OptIn(ExperimentalUnsignedTypes::class)
 
-import kotlinx.serialization.Required
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
 import java.io.BufferedWriter
-import java.io.File
 import java.io.FileWriter
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.io.path.Path
-import kotlin.io.path.fileSize
-import kotlin.io.path.forEachDirectoryEntry
+import kotlin.io.path.*
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -125,16 +119,16 @@ class RecordV3(
     }
 }
 
-@Serializable
 class SensorInfo(
-    @Required private val actimId: Int = 0,
-    @Required private val sensorId: String = "",
-    @Required var fileName: String = "",
-    @Required private var fileSize: Int = 0,
-    @Transient private var fileDate: ZonedDateTime = TimeZero
+    private val actimId: Int = 0,
+    private val sensorId: String = "",
+    var fileName: String = "",
+    private var fileSize: Int = 0,
+    private var fileDate: ZonedDateTime = TimeZero
 ){
-    @Transient lateinit var fileHandle: BufferedWriter
-    @Transient private var lastDateTime: ZonedDateTime = TimeZero
+    lateinit var fileHandle: BufferedWriter
+    private var lastDateTime: ZonedDateTime = TimeZero
+    private val projectDir = Path("$REPO_ROOT/Project%02d".format(Projects[actimId] ?: 0))
 
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId.uppercase())}
 
@@ -144,21 +138,26 @@ class SensorInfo(
         var lastRepoFile = ""
         var lastRepoSize = 0
         var lastRepoDate = TimeZero
-        Path(REPO_ROOT).forEachDirectoryEntry {
-            val thisRepoFile = it.fileName.toString()
-            if ("Actim[0-9]{4}-[12][AB]_[-0-9_]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
-                val thisRepoDate = thisRepoFile.parseFileDate()
-                if (sensorName() == thisRepoFile.substring(0, 12) &&
-                    (thisRepoDate <= atDateTime)) {
-                    if (lastRepoFile == "" ||
-                        (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
+        if (projectDir.exists()) {
+            projectDir.forEachDirectoryEntry {
+                val thisRepoFile = it.fileName.toString()
+                if ("Actim[0-9]{4}-[12][AB]_[-0-9_]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
+                    val thisRepoDate = thisRepoFile.parseFileDate()
+                    if (sensorName() == thisRepoFile.substring(0, 12) &&
+                        (thisRepoDate <= atDateTime)
                     ) {
-                        lastRepoFile = thisRepoFile
-                        lastRepoSize = it.fileSize().toInt()
-                        lastRepoDate = thisRepoDate
+                        if (lastRepoFile == "" ||
+                            (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
+                        ) {
+                            lastRepoFile = thisRepoFile
+                            lastRepoSize = it.fileSize().toInt()
+                            lastRepoDate = thisRepoDate
+                        }
                     }
                 }
             }
+        } else {
+            projectDir.createDirectory()
         }
 
         if (lastRepoFile == ""
@@ -170,7 +169,7 @@ class SensorInfo(
             fileName = lastRepoFile
             fileDate = lastRepoDate
             fileSize = lastRepoSize
-            val file = File(lastRepoFile.fullName())
+            val file = lastRepoFile.toFile(projectDir)
             file.setWritable(true, false)
             fileHandle = BufferedWriter(FileWriter(file, true))
             fileHandle.append("\n")
@@ -183,7 +182,9 @@ class SensorInfo(
         fileName = sensorName() + "_" + atDateTime.fileFormat() + ".csv"
         fileDate = atDateTime
         fileSize = 0
-        val file = File(fileName.fullName())
+        val file = fileName.toFile(projectDir)
+        printLog("Create $file", 10)
+        file.createNewFile()
         file.setWritable(true, false)
         fileHandle = BufferedWriter(FileWriter(file))
         fileHandle.append("\n")
