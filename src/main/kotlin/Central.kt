@@ -60,7 +60,7 @@ fun selfToCentral() {
                         "@${it.frequency}" + "(${it.sensorStr()})" + "%.3f%%".format(it.rating * 100.0)
                     }
                 }, 1)
-        val reqString = CENTRAL_BIN + "action=actiserver&serverId=$serverId"
+        val reqString = CENTRAL_BIN + "action=actiserver3&serverId=$serverId"
         val data = Json.encodeToString(Self.toCentral())
         val responseText = sendHttpRequest(reqString, data)
         if (responseText.startsWith("+")) {
@@ -75,10 +75,24 @@ fun selfToCentral() {
             } else {
                 printLog("No Actimetre $actimId to send $command to", 1)
             }
-        } else {
-            if (responseText != "") {
-                loadRegistry(responseText)
-            }
+        } else if (responseText.startsWith("!")) {
+            Self.dbTime = now()
+            fetchRegistry()
+            fetchProjects()
         }
     }
+}
+
+fun fetchRegistry() {
+    printLog("Fetch registry", 1)
+    val reqString = CENTRAL_BIN + "action=registry&serverId=$serverId"
+    val responseText = sendHttpRequest(reqString)
+    loadRegistry(responseText)
+}
+
+fun fetchProjects() {
+    printLog("Fetch projects", 1)
+    val reqString = CENTRAL_BIN + "action=projects&serverId=$serverId"
+    val responseText = sendHttpRequest(reqString)
+    loadProjects(responseText)
 }

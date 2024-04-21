@@ -37,6 +37,8 @@ class ActiserverShort(
     @Required var diskFree: Long = 0,
     @Serializable(with = DateTimeAsString::class)
     @Required var lastReport : ZonedDateTime = TimeZero,
+    @Serializable(with = DateTimeAsString::class)
+    @Required var dbTime : ZonedDateTime = TimeZero,
     @Serializable(with = ActimetreShortList::class)
     @Required var actimetreList: Map<Int, ActimetreShort> = mapOf(),
 ) {
@@ -52,6 +54,7 @@ class ActiserverShort(
         diskSize = s.diskSize
         diskFree = s.diskFree
         lastReport = s.lastReport
+        dbTime = s.dbTime
         for (a in s.actimetreList.values) {
             a.lastReport = s.lastReport
         }
@@ -71,6 +74,7 @@ class Actiserver(
     var diskSize: Long = 0
     var diskFree: Long = 0
     var lastReport: ZonedDateTime = TimeZero
+    var dbTime: ZonedDateTime = TimeZero
     var actimetreList = mutableMapOf<Int, Actimetre>()
 
     fun toCentral(): ActiserverShort {

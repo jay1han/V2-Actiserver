@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "342"
+const val VERSION_STRING = "345"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -237,6 +237,22 @@ var Registry = mutableMapOf<String, Int>()
 
 fun loadRegistry(registryText: String) {
     Registry = Json.decodeFromString<MutableMap<String, Int>>(registryText)
+    printLog(Registry.toString(), 1)
+}
+
+var Projects = mutableMapOf<Int, Int>()
+
+fun loadProjects(data: String) {
+    for (line in data.lines()) {
+        if (line.contains(':')) {
+            val project = line.split(':')
+            val projectId = project[0].trim().toInt()
+            for (actimId in project[1].split(',').map { it.trim().toInt() }) {
+                Projects[actimId] = projectId
+            }
+        }
+    }
+    printLog(Projects.toString(), 1)
 }
 
 fun String.fullName(): String {return "$REPO_ROOT/$this"}
