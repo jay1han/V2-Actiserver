@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalUnsignedTypes::class)
+@file:OptIn(ExperimentalUnsignedTypes::class, ExperimentalPathApi::class)
 
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
@@ -9,9 +9,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.io.path.Path
-import kotlin.io.path.fileSize
-import kotlin.io.path.forEachDirectoryEntry
+import kotlin.io.path.*
 
 val Frequencies = listOf(50, 100, 1, 200, 30, 10)
 val FrequenciesV3 = listOf(100, 500, 1000, 2000, 4000, 8000)
@@ -23,7 +21,7 @@ class ActimetreShort(
     @Required private var boardType : String = "???",
     @Required private var version   : String = "000",
     @Required private var serverId  : Int = 0,
-    @Required private var isDead    : Boolean = false,
+    @Required private var isDead    : Int = 0,
     @Serializable(with = DateTimeAsString::class)
     @Required var bootTime          : ZonedDateTime = TimeZero,
     @Serializable(with = DateTimeAsString::class)
@@ -66,7 +64,7 @@ class Actimetre(
 ) {
     private var v3 = false
     private var v34 = false
-    var isDead = false
+    var isDead = 0
     var bootTime: ZonedDateTime = TimeZero
     var lastSeen: ZonedDateTime = TimeZero
     var lastReport: ZonedDateTime = TimeZero
@@ -289,7 +287,7 @@ class Actimetre(
                 )
             }
 
-            val htmlFile = FileWriter("index.html".toFile(projectDir))
+            val htmlFile = FileWriter("index%04d.html".format(actimId).toFile(projectDir))
             htmlFile.write(
                 """
                 <html><head>
@@ -322,8 +320,8 @@ class Actimetre(
     }
 
     fun dies() {
-        if (isDead) return
-        isDead = true
+        if (isDead > 0) return
+        isDead = 1
         frequency = 0
         val reqString = CENTRAL_BIN + "action=actimetre-off" +
                 "&serverId=${serverId}&actimId=${actimId}"
@@ -332,10 +330,15 @@ class Actimetre(
         for (sensorInfo in sensorList.values) {
             sensorInfo.closeIfOpen()
         }
+        if (this::channel.isInitialized) channel.close()
+    }
+
+    fun cleanup() {
+        // TODO: Invoke CLEAN_EXEC
+        projectDir.deleteRecursively()
         synchronized(Self) {
             Self.removeActim(actimId)
         }
-        if (this::channel.isInitialized) channel.close()
     }
 
     fun sensorStr(): String {
@@ -353,10 +356,10 @@ class Actimetre(
     }
 
     fun loop(now: ZonedDateTime) {
-        if (lastSeen == TimeZero || isDead || !this::channel.isInitialized) return
+        if (lastSeen == TimeZero || isDead > 0 || !this::channel.isInitialized) return
         if (Duration.between(bootTime, now) < ACTIM_BOOT_TIME) return
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
-            if (isDead) return
+            if (isDead > 0) return
             printLog(
                 "${actimName()} last seen ${lastSeen.prettyFormat()}, " +
                         "${Duration.between(lastSeen, now).printSec()} before now ${now.prettyFormat()}",
