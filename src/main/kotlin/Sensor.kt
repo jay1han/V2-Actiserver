@@ -27,17 +27,21 @@ class AccelData {
     private var rawX: Float = 0.0f
     private var rawY: Float = 0.0f
     private var rawZ: Float = 0.0f
-    var rawStr: String = ",0,0,0"
+    var rawStr = ""
     private var vec: Float = 0.0f
-    var vecStr: String = ",0"
+    var vecStr = ""
 
     fun read(buffer: UByteArray): AccelData {
         rawX = makeInt(buffer[0], buffer[1]) / 8192.0f
         rawY = makeInt(buffer[2], buffer[3]) / 8192.0f
         rawZ = makeInt(buffer[4], buffer[5]) / 8192.0f
-        rawStr = "," + arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.4f".format(it) }
-        vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
-        vecStr = ",%.5f".format(vec)
+        if (OUTPUT_RAW) {
+            rawStr = "," + arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.4f".format(it) }
+        }
+        if (OUTPUT_VECTORS) {
+            vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
+            vecStr = ",%.5f".format(vec)
+        }
         return this
     }
 }
@@ -46,22 +50,26 @@ class GyroData {
     private var rawX = 0.0f
     private var rawY = 0.0f
     private var rawZ = 0.0f
-    var rawStr = if (INCLUDE_GZ) ",0,0,0" else ",0,0"
+    var rawStr = ""
     private var vec = 0.0f
-    var vecStr = ",0"
+    var vecStr = ""
 
     fun read(buffer: UByteArray): GyroData {
         rawX = makeInt(buffer[0], buffer[1]) / 131.0f
         rawY = makeInt(buffer[2], buffer[3]) / 131.0f
         rawZ = if (buffer.size > 4) makeInt(buffer[4], buffer[5]) / 131.0f else 0.0f
-        rawStr = "," +
-            if (INCLUDE_GZ) {
-                arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.3f".format(it) }
-            } else {
-                arrayOf(rawX, rawY).joinToString(separator = ",") { "%+.3f".format(it) }
-            }
-        vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
-        vecStr = ",%.4f".format(vec)
+        if (OUTPUT_RAW) {
+            rawStr = "," +
+                    if (INCLUDE_GZ) {
+                        arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.3f".format(it) }
+                    } else {
+                        arrayOf(rawX, rawY).joinToString(separator = ",") { "%+.3f".format(it) }
+                    }
+        }
+        if (OUTPUT_VECTORS) {
+            vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
+            vecStr = ",%.4f".format(vec)
+        }
         return this
     }
 }
