@@ -9,6 +9,10 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import java.time.ZonedDateTime
+import kotlin.io.path.Path
+import kotlin.io.path.fileSize
+import kotlin.io.path.forEachDirectoryEntry
+import kotlin.io.path.name
 
 object ActimetreShortList: KSerializer<Map<Int, ActimetreShort>> {
     override val descriptor: SerialDescriptor =
@@ -37,6 +41,8 @@ class ActiserverShort(
     @Required var diskFree: Long = 0,
     @Serializable(with = DateTimeAsString::class)
     @Required var lastReport : ZonedDateTime = TimeZero,
+    @Serializable(with = DateTimeAsString::class)
+    @Required var dbTime : ZonedDateTime = TimeZero,
     @Serializable(with = ActimetreShortList::class)
     @Required var actimetreList: Map<Int, ActimetreShort> = mapOf(),
 ) {
@@ -52,6 +58,7 @@ class ActiserverShort(
         diskSize = s.diskSize
         diskFree = s.diskFree
         lastReport = s.lastReport
+        dbTime = s.dbTime
         for (a in s.actimetreList.values) {
             a.lastReport = s.lastReport
         }
@@ -71,7 +78,26 @@ class Actiserver(
     var diskSize: Long = 0
     var diskFree: Long = 0
     var lastReport: ZonedDateTime = TimeZero
+    var dbTime: ZonedDateTime = TimeZero
     var actimetreList = mutableMapOf<Int, Actimetre>()
+
+    init {
+        Path(REPO_ROOT).forEachDirectoryEntry("Project*") {
+            it.forEachDirectoryEntry("Actim*") {
+                val match = "Actim([0-9]{4})-".toRegex().find(it.name)
+                if (match != null) {
+                    val actimId = match.groupValues[1].toInt()
+                    if (!actimetreList.containsKey(actimId)) {
+                        actimetreList[actimId] = Actimetre(actimId, serverId = serverId, isDead = 1)
+                    }
+                    val a = actimetreList[actimId]!!
+                    a.repoSize += it.fileSize()
+                    a.repoNums ++
+                    printLog("${it.name}: Actim%04d data ${a.repoNums} / ${a.repoSize}".format(actimId), 10)
+                }
+            }
+        }
+    }
 
     fun toCentral(): ActiserverShort {
         lastReport = now()
@@ -85,11 +111,10 @@ class Actiserver(
 
     fun updateActimetre(actimId: Int, mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: UByte): Actimetre {
         synchronized(this) {
-            var a = actimetreList[actimId]
-            if (a == null) {
-                a = Actimetre(actimId, serverId = serverId)
-                actimetreList[actimId] = a
+            if (!actimetreList.containsKey(actimId)) {
+                actimetreList[actimId] = Actimetre(actimId, serverId = serverId)
             }
+            val a = actimetreList[actimId]!!
             a.setInfo(mac, boardType, version, bootTime, sensorBits)
             return a
         }

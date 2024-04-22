@@ -1,18 +1,12 @@
 @file:OptIn(ExperimentalUnsignedTypes::class)
 
-import kotlinx.serialization.Required
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
 import java.io.BufferedWriter
-import java.io.File
 import java.io.FileWriter
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.io.path.Path
-import kotlin.io.path.fileSize
-import kotlin.io.path.forEachDirectoryEntry
+import kotlin.io.path.*
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -27,17 +21,21 @@ class AccelData {
     private var rawX: Float = 0.0f
     private var rawY: Float = 0.0f
     private var rawZ: Float = 0.0f
-    var rawStr: String = ",0,0,0"
+    var rawStr = ""
     private var vec: Float = 0.0f
-    var vecStr: String = ",0"
+    var vecStr = ""
 
     fun read(buffer: UByteArray): AccelData {
         rawX = makeInt(buffer[0], buffer[1]) / 8192.0f
         rawY = makeInt(buffer[2], buffer[3]) / 8192.0f
         rawZ = makeInt(buffer[4], buffer[5]) / 8192.0f
-        rawStr = "," + arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.4f".format(it) }
-        vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
-        vecStr = ",%.5f".format(vec)
+        if (OUTPUT_RAW) {
+            rawStr = "," + arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.4f".format(it) }
+        }
+        if (OUTPUT_VECTORS) {
+            vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
+            vecStr = ",%.5f".format(vec)
+        }
         return this
     }
 }
@@ -46,22 +44,26 @@ class GyroData {
     private var rawX = 0.0f
     private var rawY = 0.0f
     private var rawZ = 0.0f
-    var rawStr = if (INCLUDE_GZ) ",0,0,0" else ",0,0"
+    var rawStr = ""
     private var vec = 0.0f
-    var vecStr = ",0"
+    var vecStr = ""
 
     fun read(buffer: UByteArray): GyroData {
         rawX = makeInt(buffer[0], buffer[1]) / 131.0f
         rawY = makeInt(buffer[2], buffer[3]) / 131.0f
         rawZ = if (buffer.size > 4) makeInt(buffer[4], buffer[5]) / 131.0f else 0.0f
-        rawStr = "," +
-            if (INCLUDE_GZ) {
-                arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.3f".format(it) }
-            } else {
-                arrayOf(rawX, rawY).joinToString(separator = ",") { "%+.3f".format(it) }
-            }
-        vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
-        vecStr = ",%.4f".format(vec)
+        if (OUTPUT_RAW) {
+            rawStr = "," +
+                    if (INCLUDE_GZ) {
+                        arrayOf(rawX, rawY, rawZ).joinToString(separator = ",") { "%+.3f".format(it) }
+                    } else {
+                        arrayOf(rawX, rawY).joinToString(separator = ",") { "%+.3f".format(it) }
+                    }
+        }
+        if (OUTPUT_VECTORS) {
+            vec = sqrt(rawX.pow(2) + rawY.pow(2) + rawZ.pow(2))
+            vecStr = ",%.4f".format(vec)
+        }
         return this
     }
 }
@@ -117,65 +119,70 @@ class RecordV3(
     }
 }
 
-@Serializable
 class SensorInfo(
-    @Required private val actimId: Int = 0,
-    @Required private val sensorId: String = "",
-    @Required var fileName: String = "",
-    @Required private var fileSize: Int = 0,
-    @Transient private var fileDate: ZonedDateTime = TimeZero
+    private val actimId: Int = 0,
+    private val sensorId: String = "",
+    var fileName: String = "",
+    private var fileSize: Int = 0,
+    private var fileDate: ZonedDateTime = TimeZero
 ){
-    @Transient lateinit var fileHandle: BufferedWriter
-    @Transient private var lastDateTime: ZonedDateTime = TimeZero
+    lateinit var fileHandle: BufferedWriter
+    private var lastDateTime: ZonedDateTime = TimeZero
+    private val projectDir = Path("$REPO_ROOT/Project%02d".format(Projects[actimId] ?: 0))
 
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId.uppercase())}
 
-    private fun findDataFile(atDateTime: ZonedDateTime): Boolean {
+    private fun findDataFile(atDateTime: ZonedDateTime) {
         diskCapa()
 
         var lastRepoFile = ""
         var lastRepoSize = 0
         var lastRepoDate = TimeZero
-        Path(REPO_ROOT).forEachDirectoryEntry {
-            val thisRepoFile = it.fileName.toString()
-            if ("Actim[0-9]{4}-[12][AB]_[-0-9_]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
-                val thisRepoDate = thisRepoFile.parseFileDate()
-                if (sensorName() == thisRepoFile.substring(0, 12) &&
-                    (thisRepoDate <= atDateTime)) {
-                    if (lastRepoFile == "" ||
-                        (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
+        if (projectDir.exists()) {
+            projectDir.forEachDirectoryEntry {
+                val thisRepoFile = it.fileName.toString()
+                if ("Actim[0-9]{4}-[12][AB]_[-0-9_]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
+                    val thisRepoDate = thisRepoFile.parseFileDate()
+                    if (sensorName() == thisRepoFile.substring(0, 12) &&
+                        (thisRepoDate <= atDateTime)
                     ) {
-                        lastRepoFile = thisRepoFile
-                        lastRepoSize = it.fileSize().toInt()
-                        lastRepoDate = thisRepoDate
+                        if (lastRepoFile == "" ||
+                            (Duration.between(lastRepoDate, thisRepoDate) > Duration.ofSeconds(0))
+                        ) {
+                            lastRepoFile = thisRepoFile
+                            lastRepoSize = it.fileSize().toInt()
+                            lastRepoDate = thisRepoDate
+                        }
                     }
                 }
             }
+        } else {
+            projectDir.createDirectory()
         }
 
         if (lastRepoFile == ""
             || (Duration.between(lastRepoDate, atDateTime) > MAX_REPO_TIME)
             || (lastRepoSize > MAX_REPO_SIZE)) {
             newDataFile(atDateTime)
-            return true
         } else {
             fileName = lastRepoFile
             fileDate = lastRepoDate
             fileSize = lastRepoSize
-            val file = File(lastRepoFile.fullName())
+            val file = lastRepoFile.toFile(projectDir)
             file.setWritable(true, false)
             fileHandle = BufferedWriter(FileWriter(file, true))
             fileHandle.append("\n")
             printLog("Continue data file $lastRepoFile", 10)
         }
-        return false
     }
 
     private fun newDataFile(atDateTime: ZonedDateTime) {
         fileName = sensorName() + "_" + atDateTime.fileFormat() + ".csv"
         fileDate = atDateTime
         fileSize = 0
-        val file = File(fileName.fullName())
+        val file = fileName.toFile(projectDir)
+        printLog("Create $file", 10)
+        file.createNewFile()
         file.setWritable(true, false)
         fileHandle = BufferedWriter(FileWriter(file))
         fileHandle.append("\n")
@@ -197,12 +204,15 @@ class SensorInfo(
 
     private fun writeData(dateTime: ZonedDateTime, textStr: String): Pair<Boolean, Int> {
         var newFile = false
-        if (!this::fileHandle.isInitialized) newFile = findDataFile(dateTime)
+        if (!this::fileHandle.isInitialized) {
+            findDataFile(dateTime)
+            newFile = true
+        }
         else if (fileSize > MAX_REPO_SIZE ||
             Duration.between(fileDate, dateTime) > MAX_REPO_TIME
         ) {
             fileHandle.close()
-            diskCapa()
+            runSync(fileName)
             newDataFile(dateTime)
             newFile = true
         }
@@ -226,7 +236,6 @@ class SensorInfo(
             } catch (e: Throwable) {
                 printLog("Close file:$e", 10)
             }
-            diskCapa()
         }
     }
 }

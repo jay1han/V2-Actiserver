@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalUnsignedTypes::class)
+@file:OptIn(ExperimentalUnsignedTypes::class, ExperimentalPathApi::class)
 
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
@@ -9,9 +9,8 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.io.path.Path
-import kotlin.io.path.fileSize
-import kotlin.io.path.forEachDirectoryEntry
+import kotlin.concurrent.thread
+import kotlin.io.path.*
 
 val Frequencies = listOf(50, 100, 1, 200, 30, 10)
 val FrequenciesV3 = listOf(100, 500, 1000, 2000, 4000, 8000)
@@ -23,7 +22,7 @@ class ActimetreShort(
     @Required private var boardType : String = "???",
     @Required private var version   : String = "000",
     @Required private var serverId  : Int = 0,
-    @Required private var isDead    : Boolean = false,
+    @Required private var isDead    : Int = 0,
     @Serializable(with = DateTimeAsString::class)
     @Required var bootTime          : ZonedDateTime = TimeZero,
     @Serializable(with = DateTimeAsString::class)
@@ -59,14 +58,14 @@ class ActimetreShort(
 
 class Actimetre(
     val actimId   : Int = 0,
-    var mac       : String = "............",
-    var boardType : String = "???",
-    var version   : String = "000",
+    var mac       : String = "",
+    var boardType : String = "",
+    var version   : String = "",
     val serverId  : Int = 0,
+    var isDead    : Int = 0,
 ) {
     private var v3 = false
     private var v34 = false
-    var isDead = false
     var bootTime: ZonedDateTime = TimeZero
     var lastSeen: ZonedDateTime = TimeZero
     var lastReport: ZonedDateTime = TimeZero
@@ -86,6 +85,8 @@ class Actimetre(
     var repoNums: Int = 0
     var repoSize: Long = 0
     private var htmlUpdate: ZonedDateTime = TimeZero
+    private var projectPath = "Project%02d".format(Projects[actimId])
+    private var projectDir = Path("$REPO_ROOT/$projectPath")
 
     private fun readInto(buffer: ByteBuffer): Int {
         var inputLen = 0
@@ -165,7 +166,10 @@ class Actimetre(
                     repoSize = 0
                     repoNums = 0
 
-                    Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+                    if (!projectDir.exists()) {
+                        projectDir.createDirectory()
+                    }
+                    projectDir.forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
                         repoNums++
                     }
@@ -188,8 +192,6 @@ class Actimetre(
                             msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
                         )
                         val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
-                        repoSize += sizeWritten
-                        if (newFile) repoNums++
                         htmlData(newFile)
                     }
                 } else {
@@ -233,8 +235,13 @@ class Actimetre(
                 if (lastMessage == TimeZero) {
                     totalPoints = 1
                     samplePoints = 0
+                    repoNums = 0
+                    repoSize = 0
 
-                    Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+                    if (!projectDir.exists()) {
+                        projectDir.createDirectory()
+                    }
+                    projectDir.forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
                         repoNums++
                     }
@@ -260,8 +267,6 @@ class Actimetre(
                     if (!sensorList.containsKey(record.sensorId))
                         sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
                     val (newFile, sizeWritten) = sensorList[record.sensorId]!!.writeData(record)
-                    repoSize += sizeWritten
-                    if (newFile) repoNums++
                     htmlData(newFile)
                     index += DATA_LENGTH
                 }
@@ -269,25 +274,30 @@ class Actimetre(
         }
     }
 
-    fun htmlData(force:Boolean) {
+    fun htmlData(force:Boolean = false) {
         if (force || lastSeen > htmlUpdate) {
             htmlUpdate = lastSeen.plusSeconds(60)
 
+            printLog("Update ${actimName()}.html", 100)
             val repoList: MutableMap<String, MutableList<String>> = mutableMapOf()
-            Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+            repoNums = 0
+            repoSize = 0
+            projectDir.forEachDirectoryEntry("${actimName()}*") {
                 val fileDate = it.fileName.toString().parseFileDate().prettyFormat()
                 val sensorStr = it.fileName.toString().substring(10, 12)
-                val fileSize = it.fileSize().printSize()
+                val fileSize = it.fileSize()
+                repoNums ++
+                repoSize += fileSize
                 if (repoList.get(sensorStr) == null) repoList[sensorStr] = mutableListOf()
                 repoList[sensorStr]!!.add(
                     """
-                <td>$fileDate</td><td>$fileSize</td>
-                <td><a href="/${it.fileName}">${it.fileName}</a></td>                
+                <td>$fileDate</td><td>${fileSize.printSize()}</td>
+                <td><a href="/$projectPath/${it.fileName}">${it.fileName}</a></td>                
                 """.trimIndent()
                 )
             }
 
-            val htmlFile = FileWriter("$REPO_ROOT/index%04d.html".format(actimId))
+            val htmlFile = FileWriter("index%04d.html".format(actimId).toFile(projectDir))
             htmlFile.write(
                 """
                 <html><head>
@@ -297,7 +307,7 @@ class Actimetre(
                 </style>
                 <title>${actimName()} data files</title></head><body>
                 <h1>${actimName()} data files</h1>
-                <p>Files are locally stored on ${Self.serverName()}, IP=${Self.ip}</p>
+                <p>Files are locally stored on <b>${Self.serverName()}</b>, IP=${Self.ip}, under $REPO_ROOT/$projectPath/</p>
                 <p>Right-click a file name and choose "Download link" to retrieve the file</p>
                 <table><tr><th>Sensor</th><th>Date created</th><th>Size</th><th>File name</th></tr>
             """.trimIndent()
@@ -320,8 +330,8 @@ class Actimetre(
     }
 
     fun dies() {
-        if (isDead) return
-        isDead = true
+        if (isDead > 0) return
+        isDead = 1
         frequency = 0
         val reqString = CENTRAL_BIN + "action=actimetre-off" +
                 "&serverId=${serverId}&actimId=${actimId}"
@@ -330,10 +340,44 @@ class Actimetre(
         for (sensorInfo in sensorList.values) {
             sensorInfo.closeIfOpen()
         }
-        synchronized(Self) {
-            Self.removeActim(actimId)
+        if (this::channel.isInitialized) channel.close()
+        diskCapa()
+        htmlData(true)
+    }
+
+    fun restart() {
+        for (sensorInfo in sensorList.values) {
+            sensorInfo.closeIfOpen()
         }
         if (this::channel.isInitialized) channel.close()
+        diskCapa()
+        this.isDead = 0
+        htmlData(true)
+    }
+
+    fun cleanup() {
+        if (isDead == 0) {
+            printLog("${actimName()} is not dead", 1)
+            return
+        }
+        if (!projectDir.exists()) {
+            printLog("$projectPath doesn't exist",1)
+            return
+        }
+        thread {
+            projectDir.forEachDirectoryEntry("${actimName()}*") {
+                printLog("Sync ${it.fileName}")
+                runSync(it.toAbsolutePath().toString())
+            }
+            val htmlIndex = "index%04d.html".format(actimId).toFile(projectDir)
+            if (htmlIndex.exists()) htmlIndex.delete()
+            Self.removeActim(actimId)
+            val reqString = CENTRAL_BIN + "action=actimetre-removed" +
+                    "&serverId=${serverId}&actimId=${actimId}"
+            sendHttpRequest(reqString)
+            printLog("${actimName()} removed", 1)
+            htmlData(true)
+        }
     }
 
     fun sensorStr(): String {
@@ -351,10 +395,10 @@ class Actimetre(
     }
 
     fun loop(now: ZonedDateTime) {
-        if (lastSeen == TimeZero || isDead || !this::channel.isInitialized) return
+        if (lastSeen == TimeZero || isDead > 0 || !this::channel.isInitialized) return
         if (Duration.between(bootTime, now) < ACTIM_BOOT_TIME) return
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
-            if (isDead) return
+            if (isDead > 0) return
             printLog(
                 "${actimName()} last seen ${lastSeen.prettyFormat()}, " +
                         "${Duration.between(lastSeen, now).printSec()} before now ${now.prettyFormat()}",
@@ -396,8 +440,12 @@ class Actimetre(
         sensorOrder.sort()
     }
 
+    fun setProject(projectId: Int) {
+        projectPath = "Project%02d".format(projectId)
+        projectDir = Path("$REPO_ROOT/$projectPath")
+    }
+
     fun actimName(): String {
         return "Actim%04d".format(actimId)
     }
 }
-

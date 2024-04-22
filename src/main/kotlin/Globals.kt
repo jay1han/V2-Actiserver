@@ -11,13 +11,14 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
+import java.nio.file.Path
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "342"
+const val VERSION_STRING = "350"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -47,7 +48,7 @@ fun String.runCommand(): String {
         val parts = this.split(" ")
         val process = ProcessBuilder(*parts.toTypedArray()).start()
         process.waitFor(5, TimeUnit.SECONDS)
-        process.inputStream.bufferedReader().readText()
+        process.inputStream.bufferedReader().readText().trim()
     } catch(e: Throwable) {
         ""
     }
@@ -67,15 +68,16 @@ class Options(configFileName: String = "") {
     var isLocal: Boolean = false
 
     init {
-        println("Loading options from '$configFileName'")
         val configFile = File(
             if (configFileName != "") configFileName
             else "/etc/actimetre/actiserver.conf"
         )
+        println("Loading options from '${configFile.name}'")
         try {
             configFile.forEachLine {
                 if (it.trim() != "" && it[0] != '#') {
                     val (key, value) = it.split("=").map { it.trim() }
+                    println("$key = $value")
                     when (key.lowercase()) {
                         "repo_root" -> REPO_ROOT = value
                         "local_repo" -> isLocal = value.lowercase().toBoolean()
@@ -207,14 +209,18 @@ fun diskCapa() {
     }
 
     if (disk.free < disk.size / 10 && CLEANUP_EXEC != "") {
-        val cleanup = CLEANUP_EXEC.runCommand()
-        printLog("Disk cleaup: $cleanup", 1)
+        val result = CLEANUP_EXEC.runCommand()
+        printLog("CLEAN: \"$CLEANUP_EXEC\" -> $result", 1)
         disk = Disk()
     }
 
-    Self.df(disk.size, disk.free)
-    printLog("Disk size ${Self.diskSize}, free ${Self.diskFree} (%.1f%%)"
-        .format(100.0 * Self.diskFree / Self.diskSize), 10)
+    synchronized(Self) {
+        Self.df(disk.size, disk.free)
+        printLog(
+            "Disk size ${Self.diskSize}, free ${Self.diskFree} (%.1f%%)"
+                .format(100.0 * Self.diskFree / Self.diskSize), 10
+        )
+    }
 }
 
 lateinit var Self: Actiserver
@@ -237,9 +243,26 @@ var Registry = mutableMapOf<String, Int>()
 
 fun loadRegistry(registryText: String) {
     Registry = Json.decodeFromString<MutableMap<String, Int>>(registryText)
+    printLog(Registry.toString(), 1)
 }
 
-fun String.fullName(): String {return "$REPO_ROOT/$this"}
+var Projects = mutableMapOf<Int, Int>()
+
+fun loadProjects(data: String) {
+    for (line in data.lines()) {
+        if (line.contains(':')) {
+            val project = line.split(':')
+            val projectId = project[0].trim().toInt()
+            for (actimId in project[1].split(',').map { it.trim().toInt() }) {
+                Projects[actimId] = projectId
+                Self.actimetreList[actimId]?.setProject(projectId)
+            }
+        }
+    }
+    printLog(Projects.toString(), 1)
+}
+
+fun String.toFile(projectDir: Path): File {return Path(projectDir.toString(), this).toFile()}
 
 private val actiFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
 private val fileFormat  : DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss")
@@ -366,4 +389,15 @@ fun String.cleanJson(): String {
         .replace("[]", "empty")
         .replace("[", "[\n")
         .replace("},", "},\n")
+}
+
+fun runSync(filename: String) {
+    if (SYNC_EXEC == "") {
+        printLog("SYNC_EXEC empty", 100)
+    } else {
+        val execString = SYNC_EXEC.replace("$", filename)
+        val result = execString.runCommand()
+        printLog("SYNC: \"$execString\" -> $result")
+        diskCapa()
+    }
 }
