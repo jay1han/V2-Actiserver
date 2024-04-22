@@ -93,7 +93,7 @@ class Actiserver(
                     val a = actimetreList[actimId]!!
                     a.repoSize += it.fileSize()
                     a.repoNums ++
-                    printLog("${it.name}: Actim%04d data ${a.repoNums} / ${a.repoSize}".format(actimId))
+                    printLog("${it.name}: Actim%04d data ${a.repoNums} / ${a.repoSize}".format(actimId), 10)
                 }
             }
         }
