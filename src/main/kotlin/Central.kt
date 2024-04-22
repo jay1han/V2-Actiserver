@@ -81,7 +81,9 @@ fun selfToCentral() {
                     0x20 -> {
                         printLog("Clean up Actim%04d data".format(actimId), 1)
                         val actim = Self.actimetreList[actimId]!!
-                        actim.cleanup()
+                        if (actim.isDead == 0) {
+                            printLog("${actim.actimName()} is not dead!", 1)
+                        } else actim.cleanup()
                     }
                     else -> {
                         printLog("Unknown command $command for Actimetre $actimId", 1)
