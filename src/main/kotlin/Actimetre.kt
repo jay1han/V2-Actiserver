@@ -335,6 +335,10 @@ class Actimetre(
     }
 
     fun cleanup() {
+        if (!projectDir.exists()) {
+            printLog("${actimName()} already clean",1)
+            return
+        }
         thread {
             projectDir.forEachDirectoryEntry {
                 printLog("Sync ${it.fileName}")
