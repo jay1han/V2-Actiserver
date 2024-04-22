@@ -79,7 +79,7 @@ fun selfToCentral() {
                         actim.channel.write(commandBuffer)
                     }
                     0x20 -> {
-                        printLog("Clean up $actimId data", 1)
+                        printLog("Clean up Actim%04d data".format(actimId), 1)
                         val actim = Self.actimetreList[actimId]!!
                         actim.cleanup()
                         Self.removeActim(actimId)

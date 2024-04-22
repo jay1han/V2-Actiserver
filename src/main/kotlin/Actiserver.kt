@@ -41,6 +41,7 @@ fun main(args: Array<String>) {
     }
 
     Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, myIp, options.isLocal)
+    diskCapa()
     selfToCentral()
 
     val actiServer = ServerSocketChannel.open().apply {

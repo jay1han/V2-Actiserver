@@ -9,6 +9,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import kotlin.concurrent.thread
 import kotlin.io.path.*
 
 val Frequencies = listOf(50, 100, 1, 200, 30, 10)
@@ -334,10 +335,17 @@ class Actimetre(
     }
 
     fun cleanup() {
-        // TODO: Invoke CLEAN_EXEC
-        projectDir.deleteRecursively()
-        synchronized(Self) {
+        thread {
+            projectDir.forEachDirectoryEntry {
+                printLog("Sync ${it.fileName}")
+                runSync(it.toAbsolutePath().toString())
+            }
+            projectDir.deleteRecursively()
             Self.removeActim(actimId)
+            val reqString = CENTRAL_BIN + "action=actimetre-removed" +
+                    "&serverId=${serverId}&actimId=${actimId}"
+            sendHttpRequest(reqString)
+            printLog("${actimName()} removed", 1)
         }
     }
 

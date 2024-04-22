@@ -16,9 +16,10 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "347"
+const val VERSION_STRING = "348"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -48,7 +49,7 @@ fun String.runCommand(): String {
         val parts = this.split(" ")
         val process = ProcessBuilder(*parts.toTypedArray()).start()
         process.waitFor(5, TimeUnit.SECONDS)
-        process.inputStream.bufferedReader().readText()
+        process.inputStream.bufferedReader().readText().trim()
     } catch(e: Throwable) {
         ""
     }
@@ -68,15 +69,16 @@ class Options(configFileName: String = "") {
     var isLocal: Boolean = false
 
     init {
-        println("Loading options from '$configFileName'")
         val configFile = File(
             if (configFileName != "") configFileName
             else "/etc/actimetre/actiserver.conf"
         )
+        println("Loading options from '${configFile.name}'")
         try {
             configFile.forEachLine {
                 if (it.trim() != "" && it[0] != '#') {
                     val (key, value) = it.split("=").map { it.trim() }
+                    println("$key = $value")
                     when (key.lowercase()) {
                         "repo_root" -> REPO_ROOT = value
                         "local_repo" -> isLocal = value.lowercase().toBoolean()
@@ -208,8 +210,8 @@ fun diskCapa() {
     }
 
     if (disk.free < disk.size / 10 && CLEANUP_EXEC != "") {
-        val cleanup = CLEANUP_EXEC.runCommand()
-        printLog("Disk cleaup: $cleanup", 1)
+        val result = CLEANUP_EXEC.runCommand()
+        printLog("CLEAN: \"$CLEANUP_EXEC\" -> $result", 1)
         disk = Disk()
     }
 
@@ -383,4 +385,14 @@ fun String.cleanJson(): String {
         .replace("[]", "empty")
         .replace("[", "[\n")
         .replace("},", "},\n")
+}
+
+fun runSync(filename: String) {
+    if (SYNC_EXEC == "") {
+        printLog("SYNC_EXEC empty", 100)
+    } else {
+        val execString = SYNC_EXEC.replace("$", filename)
+        val result = execString.runCommand()
+        printLog("SYNC: \"$execString\" -> $result")
+    }
 }
