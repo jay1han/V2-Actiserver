@@ -88,11 +88,12 @@ class Actiserver(
                 if (match != null) {
                     val actimId = match.groupValues[1].toInt()
                     if (!actimetreList.containsKey(actimId)) {
-                        actimetreList[actimId] = Actimetre(actimId, serverId = serverId)
+                        actimetreList[actimId] = Actimetre(actimId, serverId = serverId, isDead = 1)
                     }
                     val a = actimetreList[actimId]!!
                     a.repoSize += it.fileSize()
                     a.repoNums ++
+                    printLog("${it.name}: Actim%04d data ${a.repoNums} / ${a.repoSize}".format(actimId))
                 }
             }
         }

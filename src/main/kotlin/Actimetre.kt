@@ -62,10 +62,10 @@ class Actimetre(
     var boardType : String = "",
     var version   : String = "",
     val serverId  : Int = 0,
+    var isDead    : Int = 0,
 ) {
     private var v3 = false
     private var v34 = false
-    var isDead = 0
     var bootTime: ZonedDateTime = TimeZero
     var lastSeen: ZonedDateTime = TimeZero
     var lastReport: ZonedDateTime = TimeZero
@@ -85,8 +85,8 @@ class Actimetre(
     var repoNums: Int = 0
     var repoSize: Long = 0
     private var htmlUpdate: ZonedDateTime = TimeZero
-    private val projectPath = "Project%02d".format(Projects[actimId] ?: 0)
-    private val projectDir = Path("$REPO_ROOT/$projectPath")
+    private var projectPath = "Project%02d".format(Projects[actimId] ?: 0)
+    private var projectDir = Path("$REPO_ROOT/$projectPath")
 
     private fun readInto(buffer: ByteBuffer): Int {
         var inputLen = 0
@@ -237,6 +237,8 @@ class Actimetre(
                 if (lastMessage == TimeZero) {
                     totalPoints = 1
                     samplePoints = 0
+                    repoNums = 0
+                    repoSize = 0
 
                     if (!projectDir.exists()) {
                         projectDir.createDirectory()
@@ -340,6 +342,14 @@ class Actimetre(
         if (this::channel.isInitialized) channel.close()
     }
 
+    fun restart() {
+        for (sensorInfo in sensorList.values) {
+            sensorInfo.closeIfOpen()
+        }
+        if (this::channel.isInitialized) channel.close()
+        this.isDead = 0
+    }
+
     fun cleanup() {
         if (isDead == 0) {
             printLog("${actimName()} is not dead", 1)
@@ -420,6 +430,9 @@ class Actimetre(
         }
         msgLength = nSensors * DATA_LENGTH + HEADER_LENGTH
         sensorOrder.sort()
+
+        projectPath = "Project%02d".format(Projects[actimId] ?: 0)
+        projectDir = Path("$REPO_ROOT/$projectPath")
     }
 
     fun actimName(): String {

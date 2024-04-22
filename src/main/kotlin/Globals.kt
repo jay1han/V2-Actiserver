@@ -19,7 +19,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "348"
+const val VERSION_STRING = "349"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true

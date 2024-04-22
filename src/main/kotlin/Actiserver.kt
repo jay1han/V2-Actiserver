@@ -131,8 +131,8 @@ fun newClient (channel: ByteChannel) {
         }
     } else {
         if (actimId in Self.actimetreList.keys) {
-            printLog("Actim%04d already running, close old channel".format(actimId), 1)
-            Self.actimetreList[actimId]!!.dies()
+            printLog("Actim%04d already known, close old channel".format(actimId), 1)
+            Self.actimetreList[actimId]!!.restart()
         } else {
             printLog("Returning Actim%04d".format(actimId), 1)
         }
