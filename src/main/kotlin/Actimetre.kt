@@ -58,9 +58,9 @@ class ActimetreShort(
 
 class Actimetre(
     val actimId   : Int = 0,
-    var mac       : String = "............",
-    var boardType : String = "???",
-    var version   : String = "000",
+    var mac       : String = "",
+    var boardType : String = "",
+    var version   : String = "",
     val serverId  : Int = 0,
 ) {
     private var v3 = false
@@ -166,7 +166,10 @@ class Actimetre(
                     repoSize = 0
                     repoNums = 0
 
-                    Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+                    if (!projectDir.exists()) {
+                        projectDir.createDirectory()
+                    }
+                    projectDir.forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
                         repoNums++
                     }
@@ -235,7 +238,10 @@ class Actimetre(
                     totalPoints = 1
                     samplePoints = 0
 
-                    Path(REPO_ROOT).forEachDirectoryEntry("${actimName()}*") {
+                    if (!projectDir.exists()) {
+                        projectDir.createDirectory()
+                    }
+                    projectDir.forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
                         repoNums++
                     }
@@ -335,16 +341,19 @@ class Actimetre(
     }
 
     fun cleanup() {
+        if (isDead == 0) {
+            printLog("${actimName()} is not dead", 1)
+            return
+        }
         if (!projectDir.exists()) {
-            printLog("${actimName()} already clean",1)
+            printLog("$projectPath doesn't exist",1)
             return
         }
         thread {
-            projectDir.forEachDirectoryEntry {
+            projectDir.forEachDirectoryEntry("${actimName()}*") {
                 printLog("Sync ${it.fileName}")
                 runSync(it.toAbsolutePath().toString())
             }
-            projectDir.deleteRecursively()
             Self.removeActim(actimId)
             val reqString = CENTRAL_BIN + "action=actimetre-removed" +
                     "&serverId=${serverId}&actimId=${actimId}"
@@ -417,4 +426,3 @@ class Actimetre(
         return "Actim%04d".format(actimId)
     }
 }
-
