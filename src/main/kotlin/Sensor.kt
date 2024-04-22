@@ -211,6 +211,7 @@ class SensorInfo(
             Duration.between(fileDate, dateTime) > MAX_REPO_TIME
         ) {
             fileHandle.close()
+            runSync(fileName)
             diskCapa()
             newDataFile(dateTime)
             newFile = true

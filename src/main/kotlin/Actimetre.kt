@@ -85,7 +85,7 @@ class Actimetre(
     var repoNums: Int = 0
     var repoSize: Long = 0
     private var htmlUpdate: ZonedDateTime = TimeZero
-    private var projectPath = "Project%02d".format(Projects[actimId] ?: 0)
+    private var projectPath = "Project00"
     private var projectDir = Path("$REPO_ROOT/$projectPath")
 
     private fun readInto(buffer: ByteBuffer): Int {
@@ -278,19 +278,23 @@ class Actimetre(
         }
     }
 
-    fun htmlData(force:Boolean) {
+    fun htmlData(force:Boolean = false) {
         if (force || lastSeen > htmlUpdate) {
             htmlUpdate = lastSeen.plusSeconds(60)
 
             val repoList: MutableMap<String, MutableList<String>> = mutableMapOf()
+            repoNums = 0
+            repoSize = 0
             projectDir.forEachDirectoryEntry("${actimName()}*") {
                 val fileDate = it.fileName.toString().parseFileDate().prettyFormat()
                 val sensorStr = it.fileName.toString().substring(10, 12)
-                val fileSize = it.fileSize().printSize()
+                val fileSize = it.fileSize()
+                repoNums ++
+                repoSize += fileSize
                 if (repoList.get(sensorStr) == null) repoList[sensorStr] = mutableListOf()
                 repoList[sensorStr]!!.add(
                     """
-                <td>$fileDate</td><td>$fileSize</td>
+                <td>$fileDate</td><td>${fileSize.printSize()}</td>
                 <td><a href="/$projectPath/${it.fileName}">${it.fileName}</a></td>                
                 """.trimIndent()
                 )
@@ -306,7 +310,7 @@ class Actimetre(
                 </style>
                 <title>${actimName()} data files</title></head><body>
                 <h1>${actimName()} data files</h1>
-                <p>Files are locally stored on ${Self.serverName()}, IP=${Self.ip}, under $REPO_ROOT/$projectPath/</p>
+                <p>Files are locally stored on <b>${Self.serverName()}</b>, IP=${Self.ip}, under $REPO_ROOT/$projectPath/</p>
                 <p>Right-click a file name and choose "Download link" to retrieve the file</p>
                 <table><tr><th>Sensor</th><th>Date created</th><th>Size</th><th>File name</th></tr>
             """.trimIndent()
@@ -340,6 +344,7 @@ class Actimetre(
             sensorInfo.closeIfOpen()
         }
         if (this::channel.isInitialized) channel.close()
+        htmlData(true)
     }
 
     fun restart() {
@@ -369,6 +374,7 @@ class Actimetre(
                     "&serverId=${serverId}&actimId=${actimId}"
             sendHttpRequest(reqString)
             printLog("${actimName()} removed", 1)
+            htmlData(true)
         }
     }
 
@@ -430,8 +436,10 @@ class Actimetre(
         }
         msgLength = nSensors * DATA_LENGTH + HEADER_LENGTH
         sensorOrder.sort()
+    }
 
-        projectPath = "Project%02d".format(Projects[actimId] ?: 0)
+    fun setProject(projectId: Int) {
+        projectPath = "Project%02d".format(projectId)
         projectDir = Path("$REPO_ROOT/$projectPath")
     }
 

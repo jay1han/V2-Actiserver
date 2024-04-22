@@ -16,7 +16,6 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
-import kotlin.io.path.deleteExisting
 import kotlin.io.path.forEachDirectoryEntry
 
 const val VERSION_STRING = "349"
@@ -252,6 +251,7 @@ fun loadProjects(data: String) {
             val projectId = project[0].trim().toInt()
             for (actimId in project[1].split(',').map { it.trim().toInt() }) {
                 Projects[actimId] = projectId
+                Self.actimetreList[actimId]?.setProject(projectId)
             }
         }
     }
