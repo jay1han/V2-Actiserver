@@ -82,7 +82,6 @@ fun selfToCentral() {
                         printLog("Clean up Actim%04d data".format(actimId), 1)
                         val actim = Self.actimetreList[actimId]!!
                         actim.cleanup()
-                        Self.removeActim(actimId)
                     }
                     else -> {
                         printLog("Unknown command $command for Actimetre $actimId", 1)

@@ -9,7 +9,6 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.concurrent.thread
 import kotlin.io.path.*
 
 val Frequencies = listOf(50, 100, 1, 200, 30, 10)
@@ -119,7 +118,7 @@ class Actimetre(
                 lastSeen = now()
                 val sensorHeader = headerBuffer.array().toUByteArray()
                 if (sensorHeader[0].toInt() == 0xFF) {
-                    val messageLen = sensorHeader[3].toInt()
+                    val messageLen = sensorHeader[3].toInt() and 0x3F
                     val messageBuffer = ByteBuffer.allocate(messageLen)
                     readInto(messageBuffer)
                     val messageText = messageBuffer.array().decodeToString()
@@ -364,20 +363,19 @@ class Actimetre(
             printLog("$projectPath doesn't exist",1)
             return
         }
-        thread {
-            projectDir.forEachDirectoryEntry("${actimName()}*") {
-                printLog("Sync ${it.fileName}")
-                runSync(it.toAbsolutePath().toString())
-            }
-            val htmlIndex = "index%04d.html".format(actimId).toFile(projectDir)
-            if (htmlIndex.exists()) htmlIndex.delete()
-            Self.removeActim(actimId)
-            val reqString = CENTRAL_BIN + "action=actimetre-removed" +
-                    "&serverId=${serverId}&actimId=${actimId}"
-            sendHttpRequest(reqString)
-            printLog("${actimName()} removed", 1)
-            htmlData(true)
+
+        projectDir.forEachDirectoryEntry("${actimName()}*") {
+            printLog("Sync ${it.fileName}")
+            runSync(it.toAbsolutePath().toString())
         }
+        val htmlIndex = "index%04d.html".format(actimId).toFile(projectDir)
+        if (htmlIndex.exists()) htmlIndex.delete()
+        Self.removeActim(actimId)
+        val reqString = CENTRAL_BIN + "action=actimetre-removed" +
+                "&serverId=${serverId}&actimId=${actimId}"
+        sendHttpRequest(reqString)
+        printLog("${actimName()} removed", 1)
+        htmlData(true)
     }
 
     fun sensorStr(): String {

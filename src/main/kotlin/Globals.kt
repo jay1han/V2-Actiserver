@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "350"
+const val VERSION_STRING = "351"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -397,7 +397,7 @@ fun runSync(filename: String) {
     } else {
         val execString = SYNC_EXEC.replace("$", filename)
         val result = execString.runCommand()
-        printLog("SYNC: \"$execString\" -> $result")
+        printLog("SYNC: \"$execString\" -> $result", 10)
         diskCapa()
     }
 }

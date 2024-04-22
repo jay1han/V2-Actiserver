@@ -6,6 +6,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import kotlin.concurrent.thread
 import kotlin.io.path.*
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -212,7 +213,9 @@ class SensorInfo(
             Duration.between(fileDate, dateTime) > MAX_REPO_TIME
         ) {
             fileHandle.close()
-            runSync(fileName)
+            thread(name = "runSync(${fileName.toFile(projectDir).name})", isDaemon = true, priority = 1) {
+                runSync(fileName.toFile(projectDir).name)
+            }
             newDataFile(dateTime)
             newFile = true
         }
