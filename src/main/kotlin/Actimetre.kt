@@ -85,7 +85,7 @@ class Actimetre(
     var repoNums: Int = 0
     var repoSize: Long = 0
     private var htmlUpdate: ZonedDateTime = TimeZero
-    private var projectPath = "Project00"
+    private var projectPath = "Project%02d".format(Projects[actimId])
     private var projectDir = Path("$REPO_ROOT/$projectPath")
 
     private fun readInto(buffer: ByteBuffer): Int {
@@ -192,8 +192,6 @@ class Actimetre(
                             msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
                         )
                         val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
-                        repoSize += sizeWritten
-                        if (newFile) repoNums++
                         htmlData(newFile)
                     }
                 } else {
@@ -269,8 +267,6 @@ class Actimetre(
                     if (!sensorList.containsKey(record.sensorId))
                         sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
                     val (newFile, sizeWritten) = sensorList[record.sensorId]!!.writeData(record)
-                    repoSize += sizeWritten
-                    if (newFile) repoNums++
                     htmlData(newFile)
                     index += DATA_LENGTH
                 }
@@ -282,6 +278,7 @@ class Actimetre(
         if (force || lastSeen > htmlUpdate) {
             htmlUpdate = lastSeen.plusSeconds(60)
 
+            printLog("Update ${actimName()}.html", 100)
             val repoList: MutableMap<String, MutableList<String>> = mutableMapOf()
             repoNums = 0
             repoSize = 0
@@ -344,6 +341,7 @@ class Actimetre(
             sensorInfo.closeIfOpen()
         }
         if (this::channel.isInitialized) channel.close()
+        diskCapa()
         htmlData(true)
     }
 
@@ -352,7 +350,9 @@ class Actimetre(
             sensorInfo.closeIfOpen()
         }
         if (this::channel.isInitialized) channel.close()
+        diskCapa()
         this.isDead = 0
+        htmlData(true)
     }
 
     fun cleanup() {
@@ -369,6 +369,8 @@ class Actimetre(
                 printLog("Sync ${it.fileName}")
                 runSync(it.toAbsolutePath().toString())
             }
+            val htmlIndex = "index%04d.html".format(actimId).toFile(projectDir)
+            if (htmlIndex.exists()) htmlIndex.delete()
             Self.removeActim(actimId)
             val reqString = CENTRAL_BIN + "action=actimetre-removed" +
                     "&serverId=${serverId}&actimId=${actimId}"

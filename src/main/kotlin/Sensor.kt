@@ -132,7 +132,7 @@ class SensorInfo(
 
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId.uppercase())}
 
-    private fun findDataFile(atDateTime: ZonedDateTime): Boolean {
+    private fun findDataFile(atDateTime: ZonedDateTime) {
         diskCapa()
 
         var lastRepoFile = ""
@@ -164,7 +164,6 @@ class SensorInfo(
             || (Duration.between(lastRepoDate, atDateTime) > MAX_REPO_TIME)
             || (lastRepoSize > MAX_REPO_SIZE)) {
             newDataFile(atDateTime)
-            return true
         } else {
             fileName = lastRepoFile
             fileDate = lastRepoDate
@@ -175,7 +174,6 @@ class SensorInfo(
             fileHandle.append("\n")
             printLog("Continue data file $lastRepoFile", 10)
         }
-        return false
     }
 
     private fun newDataFile(atDateTime: ZonedDateTime) {
@@ -206,13 +204,15 @@ class SensorInfo(
 
     private fun writeData(dateTime: ZonedDateTime, textStr: String): Pair<Boolean, Int> {
         var newFile = false
-        if (!this::fileHandle.isInitialized) newFile = findDataFile(dateTime)
+        if (!this::fileHandle.isInitialized) {
+            findDataFile(dateTime)
+            newFile = true
+        }
         else if (fileSize > MAX_REPO_SIZE ||
             Duration.between(fileDate, dateTime) > MAX_REPO_TIME
         ) {
             fileHandle.close()
             runSync(fileName)
-            diskCapa()
             newDataFile(dateTime)
             newFile = true
         }
@@ -236,7 +236,6 @@ class SensorInfo(
             } catch (e: Throwable) {
                 printLog("Close file:$e", 10)
             }
-            diskCapa()
         }
     }
 }

@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "349"
+const val VERSION_STRING = "350"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -214,9 +214,13 @@ fun diskCapa() {
         disk = Disk()
     }
 
-    Self.df(disk.size, disk.free)
-    printLog("Disk size ${Self.diskSize}, free ${Self.diskFree} (%.1f%%)"
-        .format(100.0 * Self.diskFree / Self.diskSize), 10)
+    synchronized(Self) {
+        Self.df(disk.size, disk.free)
+        printLog(
+            "Disk size ${Self.diskSize}, free ${Self.diskFree} (%.1f%%)"
+                .format(100.0 * Self.diskFree / Self.diskSize), 10
+        )
+    }
 }
 
 lateinit var Self: Actiserver
@@ -394,5 +398,6 @@ fun runSync(filename: String) {
         val execString = SYNC_EXEC.replace("$", filename)
         val result = execString.runCommand()
         printLog("SYNC: \"$execString\" -> $result")
+        diskCapa()
     }
 }
