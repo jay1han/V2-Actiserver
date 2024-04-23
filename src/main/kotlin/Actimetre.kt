@@ -2,6 +2,8 @@
 
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.io.FileWriter
 import java.nio.ByteBuffer
 import java.nio.channels.ByteChannel
@@ -123,6 +125,8 @@ class Actimetre(
                     readInto(messageBuffer)
                     val messageText = messageBuffer.array().decodeToString()
                     printLog("${actimName()} REPORT:$messageText", 1)
+                    val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
+                    sendHttpRequest(reqString, "[${lastSeen.prettyFormat()}] $messageText")
                     continue
                 }
 
