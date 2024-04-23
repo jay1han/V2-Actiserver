@@ -19,13 +19,14 @@ import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "351"
+const val VERSION_STRING = "352"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
 var ACTI_PORT = 2883
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
+var SYNC_MINS: Duration = Duration.ofMinutes(5)
 var CLEANUP_EXEC = ""
 var SYNC_EXEC = ""
 var INCLUDE_GZ = false
@@ -89,6 +90,7 @@ class Options(configFileName: String = "") {
                         "secret_key" -> SECRET_KEY = value
                         "cleanup_exec" -> CLEANUP_EXEC = value
                         "sync_exec" -> SYNC_EXEC = value
+                        "sync_mins" -> SYNC_MINS = Duration.ofMinutes(value.toLong())
                         "include_gz" -> INCLUDE_GZ = value.toBoolean()
                         "output_vectors" -> OUTPUT_VECTORS = value.toBoolean()
                         "output_raw" -> OUTPUT_RAW = value.toBoolean()

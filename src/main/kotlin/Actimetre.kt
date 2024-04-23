@@ -375,7 +375,6 @@ class Actimetre(
                 "&serverId=${serverId}&actimId=${actimId}"
         sendHttpRequest(reqString)
         printLog("${actimName()} removed", 1)
-        htmlData(true)
     }
 
     fun sensorStr(): String {
@@ -393,7 +392,11 @@ class Actimetre(
     }
 
     fun loop(now: ZonedDateTime) {
-        if (lastSeen == TimeZero || isDead > 0 || !this::channel.isInitialized) return
+        if (lastSeen == TimeZero) return
+        if (isDead > 0 || !this::channel.isInitialized) {
+            if (Duration.between(lastSeen, now) > SYNC_MINS) cleanup()
+            return
+        }
         if (Duration.between(bootTime, now) < ACTIM_BOOT_TIME) return
         if (Duration.between(lastSeen, now) > ACTIM_DEAD_TIME) {
             if (isDead > 0) return
