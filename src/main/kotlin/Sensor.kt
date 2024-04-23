@@ -213,9 +213,7 @@ class SensorInfo(
             Duration.between(fileDate, dateTime) > MAX_REPO_TIME
         ) {
             fileHandle.close()
-            thread(name = "runSync(${fileName.toFile(projectDir).name})", isDaemon = true, priority = 1) {
-                runSync(fileName.toFile(projectDir).name)
-            }
+            runSync(fileName.toFile(projectDir).toString())
             newDataFile(dateTime)
             newFile = true
         }

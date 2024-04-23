@@ -15,6 +15,7 @@ import java.nio.file.Path
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
@@ -395,9 +396,11 @@ fun runSync(filename: String) {
     if (SYNC_EXEC == "") {
         printLog("SYNC_EXEC empty", 100)
     } else {
-        val execString = SYNC_EXEC.replace("$", filename)
-        val result = execString.runCommand()
-        printLog("SYNC: \"$execString\" -> $result", 10)
-        diskCapa()
+        thread(name = "runSync($filename)", isDaemon = true, priority = 1) {
+            val execString = SYNC_EXEC.replace("$", filename)
+            val result = execString.runCommand()
+            printLog("SYNC: \"$execString\" -> $result", 10)
+            diskCapa()
+        }
     }
 }
