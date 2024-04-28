@@ -50,7 +50,15 @@ fun main(args: Array<String>) {
     }
 
     Thread.currentThread().priority = 6
-    thread(start=true, name="mainloop", priority=8, isDaemon = true) {mainLoop()}
+    thread(start=true, name="mainloop", priority=8, isDaemon = true) {
+        mainLoop()
+    }
+    thread(start=true, name="localserver", priority=8, isDaemon = true) {
+        localServer()
+    }
+    thread(start=true, name="sideloop", priority=8, isDaemon = true) {
+        sideLoop()
+    }
 
     var clientCount = 0
     while (true) {
@@ -180,5 +188,30 @@ fun mainLoop() {
             nextReport = now().plusSeconds(ACTIS_CHECK_SECS)
         }
         sleep(1000L)
+    }
+}
+
+fun localServer() {
+    printLog("Local server", 1)
+    val localServer = ServerSocketChannel.open().apply {
+        configureBlocking(true)
+        bind(InetSocketAddress(myIp, LOCAL_PORT))
+    }
+
+    while (true) {
+        val client = localServer.accept()
+    }
+}
+
+fun sideLoop() {
+    printLog("Side Loop", 1)
+    val localServer = ServerSocketChannel.open().apply {
+        configureBlocking(true)
+        bind(InetSocketAddress(serverAddress, SIDE_PORT))
+    }
+
+    while (true) {
+        val actim = localServer.accept()
+
     }
 }

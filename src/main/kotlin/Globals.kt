@@ -19,11 +19,13 @@ import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 
-const val VERSION_STRING = "353"
+const val VERSION_STRING = "355"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
-var ACTI_PORT = 2883
+const val ACTI_PORT = 2883
+const val SIDE_PORT = 3883
+const val LOCAL_PORT = 2883
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 var SYNC_MINS: Duration = Duration.ofMinutes(5)
