@@ -216,6 +216,8 @@ fun diskCapa() {
         if (oldestFile != "") {
             Path("$REPO_ROOT/$oldestFile").toFile().delete()
             disk = Disk()
+        } else {
+            break
         }
     }
 
