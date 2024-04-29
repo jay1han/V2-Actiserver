@@ -18,8 +18,9 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
+import kotlin.io.path.name
 
-const val VERSION_STRING = "353"
+const val VERSION_STRING = "354"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -191,16 +192,19 @@ class Disk {
 
 fun diskCapa() {
     var disk = Disk()
-    if (disk.free < disk.size / 20) {
+    while (disk.free < disk.size / 20) {
         var oldestTime = now()
         var oldestFile = ""
         Path(REPO_ROOT).forEachDirectoryEntry {
-            val thisRepoFile = it.fileName.toString()
-            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
-                val thisRepoDate = thisRepoFile.parseFileDate()
-                if (thisRepoDate < oldestTime) {
-                    oldestFile = thisRepoFile
-                    oldestTime = thisRepoDate
+            val project = it.name
+            it.forEachDirectoryEntry {
+                val thisRepoFile = it.name
+                if ("Actim[0-9]{4}-[12][AB]_[0-9]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
+                    val thisRepoDate = thisRepoFile.parseFileDate()
+                    if (thisRepoDate < oldestTime) {
+                        oldestFile = "$project/$thisRepoFile"
+                        oldestTime = thisRepoDate
+                    }
                 }
             }
         }
