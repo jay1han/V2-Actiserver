@@ -50,8 +50,10 @@ var options = Options("")
 fun String.runCommand(): String {
     return try {
         val parts = this.split(" ")
-        val process = ProcessBuilder(*parts.toTypedArray()).start()
-        process.waitFor(5, TimeUnit.SECONDS)
+        val processBuilder = ProcessBuilder(*parts.toTypedArray())
+        processBuilder.redirectErrorStream(true)
+        val process = processBuilder.start()
+        while (!process. waitFor(1, TimeUnit.SECONDS));
         process.inputStream.bufferedReader().readText().trim()
     } catch(e: Throwable) {
         ""
