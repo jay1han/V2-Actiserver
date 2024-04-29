@@ -195,16 +195,18 @@ class Disk {
 
 fun diskCapa() {
     var disk = Disk()
-    if (disk.free < disk.size / 20) {
+    while (disk.free < disk.size / 20) {
         var oldestTime = now()
         var oldestFile = ""
         Path(REPO_ROOT).forEachDirectoryEntry {
-            val thisRepoFile = it.fileName.toString()
-            if ("Actim[0-9]{4}-[12][AB]_[0-9]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
-                val thisRepoDate = thisRepoFile.parseFileDate()
-                if (thisRepoDate < oldestTime) {
-                    oldestFile = thisRepoFile
-                    oldestTime = thisRepoDate
+            it.forEachDirectoryEntry {
+                val thisRepoFile = it.fileName.toString()
+                if ("Actim[0-9]{4}-[12][AB]_[0-9]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
+                    val thisRepoDate = thisRepoFile.parseFileDate()
+                    if (thisRepoDate < oldestTime) {
+                        oldestFile = thisRepoFile
+                        oldestTime = thisRepoDate
+                    }
                 }
             }
         }
