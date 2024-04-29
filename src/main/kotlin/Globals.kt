@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
+import kotlin.io.path.name
 
 const val VERSION_STRING = "355"
 
@@ -199,12 +200,13 @@ fun diskCapa() {
         var oldestTime = now()
         var oldestFile = ""
         Path(REPO_ROOT).forEachDirectoryEntry {
+            val project = it.name
             it.forEachDirectoryEntry {
-                val thisRepoFile = it.fileName.toString()
+                val thisRepoFile = it.name
                 if ("Actim[0-9]{4}-[12][AB]_[0-9]{14,17}\\.csv".toRegex().matches(thisRepoFile)) {
                     val thisRepoDate = thisRepoFile.parseFileDate()
                     if (thisRepoDate < oldestTime) {
-                        oldestFile = thisRepoFile
+                        oldestFile = "$project/$thisRepoFile"
                         oldestTime = thisRepoDate
                     }
                 }
