@@ -2,6 +2,7 @@
 
 import java.io.BufferedWriter
 import java.io.FileWriter
+import java.nio.file.attribute.PosixFilePermissions
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -158,7 +159,7 @@ class SensorInfo(
                 }
             }
         } else {
-            projectDir.createDirectory()
+            projectDir.createDirectory(PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("g+w")))
         }
 
         if (lastRepoFile == ""
