@@ -2,10 +2,11 @@
 
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.io.FileWriter
 import java.nio.ByteBuffer
 import java.nio.channels.ByteChannel
-import java.nio.file.attribute.PosixFilePermissions
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -169,7 +170,7 @@ class Actimetre(
                     repoNums = 0
 
                     if (!projectDir.exists()) {
-                        projectDir.createDirectory(PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("g+w")))
+                        projectDir.createDirectory()
                     }
                     projectDir.forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
@@ -241,7 +242,7 @@ class Actimetre(
                     repoSize = 0
 
                     if (!projectDir.exists()) {
-                        projectDir.createDirectory(PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("g+w")))
+                        projectDir.createDirectory()
                     }
                     projectDir.forEachDirectoryEntry("${actimName()}*") {
                         repoSize += it.fileSize()
