@@ -19,8 +19,9 @@ import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
+import kotlin.time.Duration.Companion.seconds
 
-const val VERSION_STRING = "370"
+const val VERSION_STRING = "371"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -196,14 +197,35 @@ class Disk {
 }
 
 class Stat {
-    val cpuIdle = "/usr/bin/mpstat".runCommand().lines().last().split(Regex("\\s+")).last().toFloat()
-    private val memStat = "/usr/bin/free".runCommand().lines()[1].split(Regex("\\s+"))
-    val memAvailable = 100.0f * memStat.last().toFloat() / memStat[1].toFloat()
     private val diskDevice = "/usr/bin/df $REPO_ROOT".runCommand().lines()[1].split(Regex("\\s+"))[0].split('/').last()
-    private val diskStat = "/usr/bin/iostat -x -d $diskDevice".runCommand().lines().find {it.startsWith(diskDevice)} ?: ""
-    private val diskInfoList = diskStat.split(Regex("\\s+"))
-    val diskThroughput = diskInfoList.getOrNull(8)?.toFloat() ?: 0.0f
-    val diskUtilization = diskInfoList.lastOrNull()?.toFloat() ?: 0.0f
+    private val processBuilder = ProcessBuilder("/usr/bin/iostat", "-sxycd", diskDevice, ACTIS_STAT_SECS.toString())
+    private val process = processBuilder.start()
+    private val iostat = process.inputStream.bufferedReader()
+    var cpuIdle: Float = 0.0f
+    var memAvailable: Float = 0.0f
+    var diskThroughput: Float = 0.0f
+    var diskUtilization: Float = 0.0f
+
+    fun read() {
+        val memFree = "/usr/bin/free".runCommand()
+        printLog(memFree, 1000)
+        val memStat = memFree.lines()[1].split(Regex("\\s+"))
+        memAvailable = 100.0f * memStat.last().toFloat() / memStat[1].toFloat()
+        val lines = mutableListOf<String>()
+        while (iostat.ready()) {
+            val line = iostat.readLine()
+            printLog(line, 1000)
+            lines.add(line)
+        }
+        if (lines.size < 6) return
+
+        val cpuStat = lines[lines.indexOfLast { it.startsWith("avg-cpu") } + 1]
+        cpuIdle = cpuStat.split(Regex("\\s+")).last().toFloat()
+        val diskStat = lines.findLast { it.startsWith(diskDevice) } ?: ""
+        val diskInfoList = diskStat.split(Regex("\\s+"))
+        diskThroughput = diskInfoList.getOrNull(2)?.toFloat() ?: 0.0f
+        diskUtilization = diskInfoList.lastOrNull()?.toFloat() ?: 0.0f
+    }
 }
 
 fun globalStat() {
@@ -239,11 +261,9 @@ fun globalStat() {
         disk = Disk()
     }
 
-    val stat = Stat()
-
     synchronized(Self) {
         Self.df(disk.size, disk.free)
-        Self.stat(stat)
+        Self.stat.read()
         printLog(
             "Disk size ${Self.diskSize}, free ${Self.diskFree} (%.1f%%)"
                 .format(100.0 * Self.diskFree / Self.diskSize),
@@ -251,7 +271,7 @@ fun globalStat() {
         )
         printLog(
             "CPU Idle %.1f%%, RAM available %.1f%%, Disk throughput %.1fkB/s, utilization %.1f%%"
-                .format(stat.cpuIdle, stat.memAvailable, stat.diskThroughput, stat.diskUtilization),
+                .format(Self.stat.cpuIdle, Self.stat.memAvailable, Self.stat.diskThroughput, Self.stat.diskUtilization),
             100
         )
     }

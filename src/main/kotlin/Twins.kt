@@ -88,7 +88,7 @@ class Actiserver(
     var lastReport: ZonedDateTime = TimeZero
     var dbTime: ZonedDateTime = TimeZero
     var actimetreList = mutableMapOf<Int, Actimetre>()
-    var stat = Stat()
+    val stat = Stat()
 
     init {
         Path(REPO_ROOT).forEachDirectoryEntry("Project*") {
@@ -116,10 +116,6 @@ class Actiserver(
     fun df(size:Long, free:Long) {
         diskSize = size
         diskFree = free
-    }
-
-    fun stat(stat: Stat) {
-        this.stat = stat
     }
 
     fun updateActimetre(actimId: Int, mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: UByte): Actimetre {

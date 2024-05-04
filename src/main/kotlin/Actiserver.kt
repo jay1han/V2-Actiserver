@@ -7,6 +7,7 @@ import java.nio.channels.ServerSocketChannel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.fileSize
@@ -65,7 +66,7 @@ fun main(args: Array<String>) {
             printLog("Shutdown", 1)
             for (a in Self.actimetreList.values) {
                 a.dies()
-                a.thread.join()
+                a.join()
             }
         })
 
@@ -185,6 +186,7 @@ fun mainLoop() {
     printLog("Main Loop", 1)
     var nextReport = now().plusSeconds(ACTIS_CHECK_SECS)
     var nextStatus = now()
+
     while (true) {
         val now = now()
         val actimList = synchronized(Self) {

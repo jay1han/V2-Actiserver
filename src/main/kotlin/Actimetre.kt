@@ -356,6 +356,10 @@ class Actimetre(
         htmlData(true)
     }
 
+    fun join() {
+        if (this::thread.isInitialized) thread.join()
+    }
+
     fun restart() {
         for (sensorInfo in sensorList.values) {
             sensorInfo.closeIfOpen()
