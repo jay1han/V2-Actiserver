@@ -122,11 +122,11 @@ class RecordV3(
 class SensorInfo(
     private val actimId: Int = 0,
     private val sensorId: String = "",
-    var fileName: String = "",
+    private var fileName: String = "",
     private var fileSize: Int = 0,
     private var fileDate: ZonedDateTime = TimeZero
 ){
-    lateinit var fileHandle: BufferedWriter
+    private lateinit var fileHandle: BufferedWriter
     private var lastDateTime: ZonedDateTime = TimeZero
     private val projectDir = Path("$REPO_ROOT/Project%02d".format(Projects[actimId] ?: 0))
 

@@ -54,7 +54,7 @@ fun String.runCommand(): String {
         val processBuilder = ProcessBuilder(*parts.toTypedArray())
         processBuilder.redirectErrorStream(true)
         val process = processBuilder.start()
-        while (!process.waitFor(1, TimeUnit.SECONDS));
+        while (!process.waitFor(1, TimeUnit.SECONDS)) ;
         process.inputStream.bufferedReader().readText().trim()
     } catch(e: Throwable) {
         ""
