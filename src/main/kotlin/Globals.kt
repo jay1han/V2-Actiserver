@@ -20,7 +20,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "361"
+const val VERSION_STRING = "370"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -43,6 +43,7 @@ const val CENTRAL_BIN = "/bin/acticentral.py?"
 val ACTIM_DEAD_TIME:  Duration = Duration.ofSeconds(3)
 val ACTIM_BOOT_TIME:  Duration = Duration.ofSeconds(5)
 const val ACTIS_CHECK_SECS = 15L
+const val ACTIS_STAT_SECS  = 60L
 var LOG_SIZE = 10_000_000
 var VERBOSITY = 10
 
@@ -194,7 +195,18 @@ class Disk {
     val free = df[3].toLong()
 }
 
-fun diskCapa() {
+class Stat {
+    val cpuIdle = "/usr/bin/mpstat".runCommand().lines().last().split(Regex("\\s+")).last().toFloat()
+    private val memStat = "/usr/bin/free".runCommand().lines()[1].split(Regex("\\s+"))
+    val memAvailable = 100.0f * memStat.last().toFloat() / memStat[1].toFloat()
+    private val diskDevice = "/usr/bin/df $REPO_ROOT".runCommand().lines()[1].split(Regex("\\s+"))[0].split('/').last()
+    private val diskStat = "/usr/bin/iostat -x -d $diskDevice".runCommand().lines().find {it.startsWith(diskDevice)} ?: ""
+    private val diskInfoList = diskStat.split(Regex("\\s+"))
+    val diskThroughput = diskInfoList.getOrNull(8)?.toFloat() ?: 0.0f
+    val diskUtilization = diskInfoList.lastOrNull()?.toFloat() ?: 0.0f
+}
+
+fun globalStat() {
     var disk = Disk()
     while (disk.free < disk.size / 20) {
         var oldestTime = now()
@@ -227,11 +239,20 @@ fun diskCapa() {
         disk = Disk()
     }
 
+    val stat = Stat()
+
     synchronized(Self) {
         Self.df(disk.size, disk.free)
+        Self.stat(stat)
         printLog(
             "Disk size ${Self.diskSize}, free ${Self.diskFree} (%.1f%%)"
-                .format(100.0 * Self.diskFree / Self.diskSize), 10
+                .format(100.0 * Self.diskFree / Self.diskSize),
+            100
+        )
+        printLog(
+            "CPU Idle %.1f%%, RAM available %.1f%%, Disk throughput %.1fkB/s, utilization %.1f%%"
+                .format(stat.cpuIdle, stat.memAvailable, stat.diskThroughput, stat.diskUtilization),
+            100
         )
     }
 }
@@ -414,7 +435,6 @@ fun runSync(filename: String) {
             val execString = SYNC_EXEC.replace("$", filename)
             val result = execString.runCommand()
             printLog("SYNC: \"$execString\" -> $result", 10)
-            diskCapa()
         }
     }
 }

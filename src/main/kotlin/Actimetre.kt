@@ -353,7 +353,6 @@ class Actimetre(
             sensorInfo.closeIfOpen()
         }
         if (this::channel.isInitialized) channel.close()
-        diskCapa()
         htmlData(true)
     }
 
@@ -362,7 +361,6 @@ class Actimetre(
             sensorInfo.closeIfOpen()
         }
         if (this::channel.isInitialized) channel.close()
-        diskCapa()
         this.isDead = 0
         htmlData(true)
     }

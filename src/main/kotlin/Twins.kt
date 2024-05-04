@@ -47,6 +47,10 @@ class ActiserverShort(
     @Required var actimetreList: Map<Int, ActimetreShort> = mapOf(),
 ) {
     @Required val isDown: Int = 0
+    @Required var cpuIdle: Float = 0.0f
+    @Required var memAvail: Float = 0.0f
+    @Required var diskTput: Float = 0.0f
+    @Required var diskUtil: Float = 0.0f
 
     fun init(s: Actiserver) : ActiserverShort {
         serverId = s.serverId
@@ -63,6 +67,10 @@ class ActiserverShort(
             a.lastReport = s.lastReport
         }
         actimetreList = s.actimetreList.map { Pair(it.key, ActimetreShort().init(it.value)) }.toMap()
+        cpuIdle = s.stat.cpuIdle
+        memAvail = s.stat.memAvailable
+        diskTput = s.stat.diskThroughput
+        diskUtil = s.stat.diskUtilization
         return this
     }
 }
@@ -80,6 +88,7 @@ class Actiserver(
     var lastReport: ZonedDateTime = TimeZero
     var dbTime: ZonedDateTime = TimeZero
     var actimetreList = mutableMapOf<Int, Actimetre>()
+    var stat = Stat()
 
     init {
         Path(REPO_ROOT).forEachDirectoryEntry("Project*") {
@@ -107,6 +116,10 @@ class Actiserver(
     fun df(size:Long, free:Long) {
         diskSize = size
         diskFree = free
+    }
+
+    fun stat(stat: Stat) {
+        this.stat = stat
     }
 
     fun updateActimetre(actimId: Int, mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: UByte): Actimetre {

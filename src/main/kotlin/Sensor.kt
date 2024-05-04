@@ -133,8 +133,6 @@ class SensorInfo(
     private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId.uppercase())}
 
     private fun findDataFile(atDateTime: ZonedDateTime) {
-        diskCapa()
-
         var lastRepoFile = ""
         var lastRepoSize = 0
         var lastRepoDate = TimeZero

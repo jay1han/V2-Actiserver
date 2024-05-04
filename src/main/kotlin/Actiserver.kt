@@ -41,7 +41,6 @@ fun main(args: Array<String>) {
     }
 
     Self = Actiserver(serverId, myMachine, VERSION_STRING, myChannel, myIp, options.isLocal)
-    diskCapa()
     selfToCentral()
 
     val actiServer = ServerSocketChannel.open().apply {
@@ -185,6 +184,7 @@ fun newClient (channel: ByteChannel) {
 fun mainLoop() {
     printLog("Main Loop", 1)
     var nextReport = now().plusSeconds(ACTIS_CHECK_SECS)
+    var nextStatus = now()
     while (true) {
         val now = now()
         val actimList = synchronized(Self) {
@@ -193,9 +193,13 @@ fun mainLoop() {
         for (a in actimList) {
             a.loop(now)
         }
-        if (now().isAfter(nextReport)) {
+        if (now.isAfter(nextStatus)) {
+            globalStat()
+            nextStatus = now.plusSeconds(ACTIS_STAT_SECS)
+        }
+        if (now.isAfter(nextReport)) {
             selfToCentral()
-            nextReport = now().plusSeconds(ACTIS_CHECK_SECS)
+            nextReport = now.plusSeconds(ACTIS_CHECK_SECS)
         }
         sleep(1000L)
     }
