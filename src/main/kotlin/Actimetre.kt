@@ -145,13 +145,13 @@ class Actimetre(
                 )
 
                 if (sensorHeader[5].toInt() and 0x10 != 0) {
-                    val messageLen = (sensorHeader[3].toInt() + 1) * 4
+                    val messageLen = ((sensorHeader[3].toInt() and 0x3F) + 1) * 4
                     val messageBuffer = ByteBuffer.allocate(messageLen)
                     readInto(messageBuffer)
                     val messageText = messageBuffer.array().decodeToString()
-                    printLog("${actimName()} REPORT:$messageText", 1)
+                    printLog("${actimName()} REPORT3:$messageText", 1)
                     val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
-                    sendHttpRequest(reqString, "[${lastSeen.prettyFormat()}] $messageText")
+                    sendHttpRequest(reqString, "[${msgDateTime.prettyFormat()}] $messageText")
                     continue
                 }
                 val count = sensorHeader[3].toInt() and 0x3F
