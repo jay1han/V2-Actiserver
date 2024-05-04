@@ -65,6 +65,7 @@ class Actimetre(
     val serverId  : Int = 0,
     var isDead    : Int = 0,
 ) {
+    lateinit var thread: Thread
     private var v3 = false
     private var v34 = false
     var bootTime: ZonedDateTime = TimeZero
