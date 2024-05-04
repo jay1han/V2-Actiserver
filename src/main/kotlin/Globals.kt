@@ -19,7 +19,6 @@ import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
-import kotlin.time.Duration.Companion.seconds
 
 const val VERSION_STRING = "371"
 
@@ -208,13 +207,13 @@ class Stat {
 
     fun read() {
         val memFree = "/usr/bin/free".runCommand()
-        printLog(memFree, 1000)
+        printLog(memFree, 100)
         val memStat = memFree.lines()[1].split(Regex("\\s+"))
         memAvailable = 100.0f * memStat.last().toFloat() / memStat[1].toFloat()
         val lines = mutableListOf<String>()
         while (iostat.ready()) {
             val line = iostat.readLine()
-            printLog(line, 1000)
+            printLog(line, 100)
             lines.add(line)
         }
         if (lines.size < 6) return
