@@ -162,7 +162,7 @@ fun newClient (channel: ByteChannel) {
     outputBuffer.put(5, (sentEpochTime and 0xFF).toByte())
     channel.write(outputBuffer)
 
-    thread(start=true, name="Actim%04d".format(newActimId), priority=4, isDaemon = true) {
+    thread(start=true, name="Actim%04d".format(newActimId), priority=4, isDaemon = false) {
         a.run(channel)
         a.dies()
         printLog("Cleaning up ${a.actimName()}", 1)
