@@ -60,6 +60,16 @@ fun main(args: Array<String>) {
         sideLoop()
     }
 
+    Runtime.getRuntime().addShutdownHook(
+        thread (start=false) {
+            println("Shutdown")
+            printLog("Shutdown", 1)
+            for (a in Self.actimetreList.values) {
+                a.dies()
+                a.thread.join()
+            }
+        })
+
     var clientCount = 0
     while (true) {
         println("Listening... $clientCount")
@@ -162,7 +172,7 @@ fun newClient (channel: ByteChannel) {
     outputBuffer.put(5, (sentEpochTime and 0xFF).toByte())
     channel.write(outputBuffer)
 
-    thread(start=true, name="Actim%04d".format(newActimId), priority=4, isDaemon = true) {
+    a.thread = thread(start=true, name="Actim%04d".format(newActimId), priority=4, isDaemon = false) {
         a.run(channel)
         a.dies()
         printLog("Cleaning up ${a.actimName()}", 1)

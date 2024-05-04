@@ -20,7 +20,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "356"
+const val VERSION_STRING = "360"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -54,7 +54,7 @@ fun String.runCommand(): String {
         val processBuilder = ProcessBuilder(*parts.toTypedArray())
         processBuilder.redirectErrorStream(true)
         val process = processBuilder.start()
-        while (!process.waitFor(1, TimeUnit.SECONDS));
+        while (!process.waitFor(1, TimeUnit.SECONDS)) ;
         process.inputStream.bufferedReader().readText().trim()
     } catch(e: Throwable) {
         ""
@@ -266,9 +266,11 @@ fun loadProjects(data: String) {
         if (line.contains(':')) {
             val project = line.split(':')
             val projectId = project[0].trim().toInt()
-            for (actimId in project[1].split(',').map { it.trim().toInt() }) {
-                Projects[actimId] = projectId
-                Self.actimetreList[actimId]?.setProject(projectId)
+            if (project[1].trim() != "") {
+                for (actimId in project[1].split(',').map { it.trim().toInt() }) {
+                    Projects[actimId] = projectId
+                    Self.actimetreList[actimId]?.setProject(projectId)
+                }
             }
         }
     }
@@ -408,7 +410,7 @@ fun runSync(filename: String) {
     if (SYNC_EXEC == "") {
         printLog("SYNC_EXEC empty", 100)
     } else {
-        thread(name = "runSync($filename)", isDaemon = true, priority = 1) {
+        thread(name = "runSync($filename)", isDaemon = false, priority = 1) {
             val execString = SYNC_EXEC.replace("$", filename)
             val result = execString.runCommand()
             printLog("SYNC: \"$execString\" -> $result", 10)

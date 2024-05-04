@@ -2,8 +2,6 @@
 
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import java.io.FileWriter
 import java.nio.ByteBuffer
 import java.nio.channels.ByteChannel
@@ -65,6 +63,7 @@ class Actimetre(
     val serverId  : Int = 0,
     var isDead    : Int = 0,
 ) {
+    lateinit var thread: Thread
     private var v3 = false
     private var v34 = false
     var bootTime: ZonedDateTime = TimeZero
@@ -129,7 +128,6 @@ class Actimetre(
                     sendHttpRequest(reqString, "[${lastSeen.prettyFormat()}] $messageText")
                     continue
                 }
-
                 val sensorName = "${'1' + ((sensorHeader[3].toInt() and 0x80) shr 7)}" +
                         "${(if ((sensorHeader[5].toInt() and 0x80) != 0) 'a' else 'A') +
                                 ((sensorHeader[3].toInt() and 0x40) shr 6)}"
@@ -139,6 +137,25 @@ class Actimetre(
                     break
                 }
 
+                val msgBootEpoch = sensorHeader.getInt3At(0).toLong()
+                val msgMicros = sensorHeader.getInt3At20(5).toLong()
+                val msgDateTime = ZonedDateTime.ofInstant(
+                    Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
+                    ZoneId.of("Z")
+                )
+
+                if (sensorHeader[5].toInt() and 0x10 != 0) {
+                    val messageLen = sensorHeader[3].toInt() * 4
+                    val messageBuffer = ByteBuffer.allocate(messageLen)
+                    readInto(messageBuffer)
+                    val messageText = messageBuffer.array().decodeToString()
+                    printLog("${actimName()} REPORT:$messageText", 1)
+                    val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
+                    sendHttpRequest(reqString, "[${lastSeen.prettyFormat()}] $messageText")
+                    continue
+                }
+                val count = sensorHeader[3].toInt() and 0x3F
+
                 rssi = (sensorHeader[4].toInt() shr 5) and 0x07
                 val samplingMode = (sensorHeader[4].toInt() shr 3) and 0x03
                 val dataLength = when (samplingMode) {
@@ -146,14 +163,6 @@ class Actimetre(
                     2 -> if (v34) 6 else 4
                     else -> if (v34) 12 else 10
                 }
-
-                val msgBootEpoch = sensorHeader.getInt3At(0).toLong()
-                val count = sensorHeader[3].toInt() and 0x3F
-                val msgMicros = sensorHeader.getInt3At20(5).toLong()
-                val msgDateTime = ZonedDateTime.ofInstant(
-                    Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
-                    ZoneId.of("Z")
-                )
 
                 val msgFrequency = sensorHeader[4].toInt() and 0x07
                 if (msgFrequency >= FrequenciesV3.size) {

@@ -6,7 +6,6 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.concurrent.thread
 import kotlin.io.path.*
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -123,11 +122,11 @@ class RecordV3(
 class SensorInfo(
     private val actimId: Int = 0,
     private val sensorId: String = "",
-    var fileName: String = "",
+    private var fileName: String = "",
     private var fileSize: Int = 0,
     private var fileDate: ZonedDateTime = TimeZero
 ){
-    lateinit var fileHandle: BufferedWriter
+    private lateinit var fileHandle: BufferedWriter
     private var lastDateTime: ZonedDateTime = TimeZero
     private val projectDir = Path("$REPO_ROOT/Project%02d".format(Projects[actimId] ?: 0))
 
