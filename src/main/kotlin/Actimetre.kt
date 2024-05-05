@@ -22,6 +22,7 @@ class ActimetreShort(
     @Required private var version   : String = "000",
     @Required private var serverId  : Int = 0,
     @Required private var isDead    : Int = 0,
+    @Required private var isStopped : Boolean = false,
     @Serializable(with = DateTimeAsString::class)
     @Required var bootTime          : ZonedDateTime = TimeZero,
     @Serializable(with = DateTimeAsString::class)
@@ -42,6 +43,7 @@ class ActimetreShort(
         version = a.version
         serverId = a.serverId
         isDead = a.isDead
+        isStopped = a.isStopped
         bootTime = a.bootTime
         lastSeen = a.lastSeen
         lastReport = a.lastReport
@@ -87,6 +89,7 @@ class Actimetre(
     private var htmlUpdate: ZonedDateTime = TimeZero
     private var projectPath = "Project%02d".format(Projects[actimId])
     private var projectDir = Path("$REPO_ROOT/$projectPath")
+    var isStopped = false
 
     private fun readInto(buffer: ByteBuffer): Int {
         var inputLen = 0
@@ -194,17 +197,20 @@ class Actimetre(
                         printLog("${actimName()} Data length $readLength != ${dataLength * count}", 1)
                         break
                     }
-                    val sensorData = sensorBuffer.array().toUByteArray()
 
-                    for (index in 0 until count) {
-                        val record = RecordV3(v34,
-                            samplingMode,
-                            sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
-                            bootEpoch, msgBootEpoch,
-                            msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
-                        )
-                        val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
-                        htmlData(newFile)
+                    if (!isStopped) {
+                        val sensorData = sensorBuffer.array().toUByteArray()
+                        for (index in 0 until count) {
+                            val record = RecordV3(
+                                v34,
+                                samplingMode,
+                                sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
+                                bootEpoch, msgBootEpoch,
+                                msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
+                            )
+                            val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
+                            htmlData(newFile)
+                        }
                     }
                 } else {
                     printLog("${actimName()}-$sensorName sent 0-data", 1000)
@@ -317,8 +323,12 @@ class Actimetre(
                 body {font-family:"Arial", "Helvetica", "Verdana", "Calibri", sans-serif; hyphens:manual;}
                 table,th,tr,td {border:1px solid black; padding:0.3em; margin:0; border-collapse:collapse; text-align:center;}
                 </style>
-                <title>${actimName()} data files</title></head><body>
-                <h1>${actimName()} data files</h1>
+                <title>${actimName()} data files
+                ${if (isStopped) "(Stopped)" else ""}
+                </title></head><body>
+                <h1>${actimName()} data files
+                ${if (isStopped) "(Stopped)" else ""}
+                </h1>
                 <p>Files are locally stored on <b>${Self.serverName()}</b>, IP=${Self.ip}, under $REPO_ROOT/$projectPath/</p>
                 <p>Right-click a file name and choose "Download link" to retrieve the file</p>
                 <table><tr><th>Sensor</th><th>Date created</th><th>Size</th><th>File name</th></tr>
@@ -360,6 +370,16 @@ class Actimetre(
         if (this::thread.isInitialized) thread.join()
     }
 
+    fun stop() {
+        if (isStopped) return
+        printLog("${actimName()} stopped", 1)
+        isStopped = true
+        for (sensorInfo in sensorList.values) {
+            sensorInfo.closeAndSync()
+        }
+        htmlData(true)
+    }
+
     fun restart() {
         for (sensorInfo in sensorList.values) {
             sensorInfo.closeIfOpen()
@@ -381,7 +401,7 @@ class Actimetre(
 
         projectDir.forEachDirectoryEntry("${actimName()}*") {
             printLog("Sync ${it.fileName}")
-            runSync(it.toAbsolutePath().toString())
+            runSync(it.toAbsolutePath().toString(), true)
         }
         val htmlIndex = "index%04d.html".format(actimId).toFile(projectDir)
         if (htmlIndex.exists()) htmlIndex.delete()

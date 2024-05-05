@@ -210,7 +210,7 @@ class SensorInfo(
             Duration.between(fileDate, dateTime) > MAX_REPO_TIME
         ) {
             fileHandle.close()
-            runSync(fileName.toFile(projectDir).toString())
+            runSync(fileName.toFile(projectDir).toString(), false)
             newDataFile(dateTime)
             newFile = true
         }
@@ -235,6 +235,11 @@ class SensorInfo(
                 printLog("Close file:$e", 10)
             }
         }
+    }
+
+    fun closeAndSync() {
+        closeIfOpen()
+        runSync(fileName.toFile(projectDir).toString(), true)
     }
 }
 

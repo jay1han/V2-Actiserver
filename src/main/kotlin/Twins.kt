@@ -96,7 +96,7 @@ class Actiserver(
                     val actimId = match.groupValues[1].toInt()
                     val fileModified = it.getLastModifiedTime().toInstant()
                     if (Duration.between(fileModified, now()) > SYNC_MINS) {
-                        runSync(it.toString())
+                        runSync(it.toString(), true)
                     } else {
                         if (!actimetreList.containsKey(actimId)) {
                             actimetreList[actimId] = Actimetre(actimId, serverId = serverId, isDead = 1)
@@ -128,6 +128,7 @@ class Actiserver(
             }
             val a = actimetreList[actimId]!!
             a.setInfo(mac, boardType, version, bootTime, sensorBits)
+            a.isStopped = false
             return a
         }
     }

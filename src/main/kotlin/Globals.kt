@@ -20,7 +20,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "374"
+const val VERSION_STRING = "380"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -460,14 +460,15 @@ fun String.cleanJson(): String {
         .replace("},", "},\n")
 }
 
-fun runSync(filename: String) {
+fun runSync(filename: String, block: Boolean = false) {
     if (SYNC_EXEC == "") {
         printLog("SYNC_EXEC empty", 100)
     } else {
-        thread(name = "SYNC($filename)", isDaemon = false, priority = 1) {
+        val sync = thread(name = "SYNC($filename)", isDaemon = false, priority = 1) {
             val execString = SYNC_EXEC.replace("$", filename)
             val result = execString.runCommand()
             printLog("SYNC: \"$execString\" -> $result", 10)
         }
+        if (block) sync.join()
     }
 }

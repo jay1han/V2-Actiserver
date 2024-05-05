@@ -60,6 +60,7 @@ fun selfToCentral() {
                     "Actim%04d".format(it) + Self.actimetreList[it]?.let {
                         "@${it.frequency}" + "(${it.sensorStr()})" +
                                 if (it.isDead > 0) "Dead"
+                                else if (it.isStopped) "Stopped"
                                 else "%.3f%%".format(it.rating * 100.0)
                     }
                 }, 1)
@@ -83,7 +84,16 @@ fun selfToCentral() {
                         val actim = Self.actimetreList[actimId]!!
                         if (actim.isDead == 0) {
                             printLog("${actim.actimName()} is not dead!", 1)
-                        } else actim.cleanup()
+                        } else {
+                            actim.cleanup()
+                            selfToCentral()
+                        }
+                    }
+                    0x30 -> {
+                        printLog("Stop Actimetre $actimId", 1)
+                        val actim = Self.actimetreList[actimId]!!
+                        actim.stop()
+                        selfToCentral()
                     }
                     else -> {
                         printLog("Unknown command $command for Actimetre $actimId", 1)
