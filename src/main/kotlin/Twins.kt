@@ -8,11 +8,9 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
+import java.time.Duration
 import java.time.ZonedDateTime
-import kotlin.io.path.Path
-import kotlin.io.path.fileSize
-import kotlin.io.path.forEachDirectoryEntry
-import kotlin.io.path.name
+import kotlin.io.path.*
 
 object ActimetreShortList: KSerializer<Map<Int, ActimetreShort>> {
     override val descriptor: SerialDescriptor =
@@ -93,16 +91,21 @@ class Actiserver(
     init {
         Path(REPO_ROOT).forEachDirectoryEntry("Project*") {
             it.forEachDirectoryEntry("Actim*") {
-                val match = "Actim([0-9]{4})-".toRegex().find(it.name)
+                val match = Regex("Actim([0-9]{4})-[12][ABab]_[-0-9_]{14,17}.csv").find(it.name)
                 if (match != null) {
                     val actimId = match.groupValues[1].toInt()
-                    if (!actimetreList.containsKey(actimId)) {
-                        actimetreList[actimId] = Actimetre(actimId, serverId = serverId, isDead = 1)
+                    val fileModified = it.getLastModifiedTime().toInstant()
+                    if (Duration.between(fileModified, now()) > SYNC_MINS) {
+                        runSync(it.toString())
+                    } else {
+                        if (!actimetreList.containsKey(actimId)) {
+                            actimetreList[actimId] = Actimetre(actimId, serverId = serverId, isDead = 1)
+                        }
+                        val a = actimetreList[actimId]!!
+                        a.repoSize += it.fileSize()
+                        a.repoNums ++
+                        printLog("${it.name}: Actim%04d data ${a.repoNums} / ${a.repoSize}".format(actimId), 10)
                     }
-                    val a = actimetreList[actimId]!!
-                    a.repoSize += it.fileSize()
-                    a.repoNums ++
-                    printLog("${it.name}: Actim%04d data ${a.repoNums} / ${a.repoSize}".format(actimId), 10)
                 }
             }
         }
