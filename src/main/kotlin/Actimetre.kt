@@ -121,6 +121,12 @@ class Actimetre(
 
                 lastSeen = now()
                 val sensorHeader = headerBuffer.array().toUByteArray()
+
+                if ((sensorHeader[5].toInt() and 0x40) != 0) {
+                    printLog("${actimName()} Heartbeat", 1000)
+                    continue
+                }
+
                 if (sensorHeader[0].toInt() == 0xFF) {
                     val messageLen = sensorHeader[3].toInt() and 0x3F
                     val messageBuffer = ByteBuffer.allocate(messageLen)
