@@ -123,7 +123,7 @@ class Actimetre(
                     val messageBuffer = ByteBuffer.allocate(messageLen)
                     readInto(messageBuffer)
                     val messageText = messageBuffer.array().decodeToString()
-                    printLog("${actimName()} REPORT:$messageText", 1)
+                    printReport("[${actimName()}] $messageText")
                     val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
                     sendHttpRequest(reqString, "[${lastSeen.prettyFormat()}] $messageText")
                     continue
@@ -149,7 +149,7 @@ class Actimetre(
                     val messageBuffer = ByteBuffer.allocate(messageLen)
                     readInto(messageBuffer)
                     val messageText = messageBuffer.array().decodeToString()
-                    printLog("${actimName()} REPORT3:$messageText", 1)
+                    printReport("[${actimName()}-$sensorName@${msgDateTime.microFormat()}] $messageText")
                     val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
                     sendHttpRequest(reqString, "[${msgDateTime.prettyFormat()}] $messageText")
                     continue

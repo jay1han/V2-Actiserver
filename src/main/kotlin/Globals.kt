@@ -20,7 +20,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "373"
+const val VERSION_STRING = "374"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -39,6 +39,7 @@ var SECRET_KEY: String = "YouDontKnowThis"
 
 var REPO_ROOT = "/media/actimetre"
 const val LOG_FILE = "/etc/actimetre/server.log"
+const val REPORT_FILE = "/etc/actimetre/report.log"
 const val CENTRAL_BIN = "/bin/acticentral.py?"
 val ACTIM_DEAD_TIME:  Duration = Duration.ofSeconds(3)
 val ACTIM_BOOT_TIME:  Duration = Duration.ofSeconds(5)
@@ -287,6 +288,15 @@ fun printLog(message: String, verbosity: Int = 1) {
     }
 }
 
+fun printReport(message: String) {
+    val append = File(REPORT_FILE).length() < LOG_SIZE
+    with (PrintWriter(FileWriter(REPORT_FILE, append))) {
+        println("[${now().prettyFormat()}] $message")
+        close()
+    }
+    printLog("REPORT $message", 1)
+}
+
 const val HEADER_LENGTH = 5
 const val DATA_LENGTH = 12
 const val HEADERV3_LENGTH = 8
@@ -342,6 +352,10 @@ fun now(): ZonedDateTime {
 
 fun ZonedDateTime.prettyFormat(): String {
     return this.format(prettyFormat)
+}
+
+fun ZonedDateTime.microFormat(): String {
+    return this.format(prettyFormat) + ".%06d".format(this.nano / 1000)
 }
 
 fun ZonedDateTime.csvFormat(): String {
