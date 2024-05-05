@@ -342,17 +342,17 @@ class Actimetre(
     }
 
     fun dies() {
+        for (sensorInfo in sensorList.values) {
+            sensorInfo.closeIfOpen()
+        }
+        if (this::channel.isInitialized) channel.close()
+        printLog("${actimName()} dies", 1)
         if (isDead > 0) return
         isDead = 1
         frequency = 0
         val reqString = CENTRAL_BIN + "action=actimetre-off" +
                 "&serverId=${serverId}&actimId=${actimId}"
         sendHttpRequest(reqString)
-        printLog("${actimName()} dies", 1)
-        for (sensorInfo in sensorList.values) {
-            sensorInfo.closeIfOpen()
-        }
-        if (this::channel.isInitialized) channel.close()
         htmlData(true)
     }
 
@@ -454,6 +454,7 @@ class Actimetre(
         }
         msgLength = nSensors * DATA_LENGTH + HEADER_LENGTH
         sensorOrder.sort()
+        isDead = 0
     }
 
     fun setProject(projectId: Int) {

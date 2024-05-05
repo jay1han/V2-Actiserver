@@ -59,20 +59,29 @@ fun main(args: Array<String>) {
         sideLoop()
     }
 
+    var shuttingDown = false
     Runtime.getRuntime().addShutdownHook(
         thread (start=false) {
+            shuttingDown = true
             println("Shutdown")
-            printLog("Shutdown", 1)
+            printLog("Shutdown initiated", 1)
             for (a in Self.actimetreList.values) {
                 a.dies()
                 a.join()
             }
+            try {
+                actiServer.close()
+            } catch (e: Exception) {
+                printLog(e.toString(), 1)
+            }
+            printLog("Shutdown complete", 1)
         })
 
     var clientCount = 0
-    while (true) {
+    while (!shuttingDown) {
         println("Listening... $clientCount")
         val socket = actiServer.accept()
+        if (shuttingDown) break
         clientCount += 1
         newClient(socket as ByteChannel)
     }
