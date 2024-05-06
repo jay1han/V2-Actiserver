@@ -20,13 +20,12 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "382"
+const val VERSION_STRING = "390"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
 const val ACTI_PORT = 2883
-const val SIDE_PORT = 3883
-const val LOCAL_PORT = 2883
+const val SIDE_PORT = 2882
 var MAX_REPO_SIZE = 1_000_000_000
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 var SYNC_MINS: Duration = Duration.ofMinutes(5)
@@ -301,6 +300,7 @@ const val HEADER_LENGTH = 5
 const val DATA_LENGTH = 12
 const val HEADERV3_LENGTH = 8
 const val INIT_LENGTH = 13
+const val QUERY_LENGTH = 31
 
 var Registry = mutableMapOf<String, Int>()
 

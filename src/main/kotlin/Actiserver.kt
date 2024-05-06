@@ -52,9 +52,6 @@ fun main(args: Array<String>) {
     thread(start=true, name="mainloop", priority=8, isDaemon = true) {
         mainLoop()
     }
-    thread(start=true, name="localserver", priority=8, isDaemon = true) {
-        localServer()
-    }
     thread(start=true, name="sideloop", priority=8, isDaemon = true) {
         sideLoop()
     }
@@ -215,18 +212,6 @@ fun mainLoop() {
     }
 }
 
-fun localServer() {
-    printLog("Local server", 1)
-    val localServer = ServerSocketChannel.open().apply {
-        configureBlocking(true)
-        bind(InetSocketAddress(myIp, LOCAL_PORT))
-    }
-
-    while (true) {
-        val client = localServer.accept()
-    }
-}
-
 fun sideLoop() {
     printLog("Side Loop", 1)
     val localServer = ServerSocketChannel.open().apply {
@@ -235,7 +220,39 @@ fun sideLoop() {
     }
 
     while (true) {
-        val actim = localServer.accept()
+        val channel = localServer.accept() as ByteChannel
+        val messageBuffer = ByteBuffer.allocate(QUERY_LENGTH)
+        val inputLen: Int
+        println("New Actimetre")
 
+        try {
+            inputLen = channel.read(messageBuffer)
+            printLog("Query: read $inputLen", 100)
+        } catch (e: Throwable) {
+            printLog("Side:$e", 1)
+            return
+        }
+
+        if (inputLen != QUERY_LENGTH) {
+            printLog("Malformed query message, only $inputLen bytes", 1)
+            return
+        }
+
+        val message = messageBuffer.array()
+        val count = message[0].toInt()
+        printLog("Query with $count items", 1)
+        val actisList = mutableMapOf<Int, Int>()
+        for (i in 0 until count) {
+            val serverId = message[1 + i * 3].toUByte().toInt() * 256 + message[2 + i * 3].toUByte().toInt()
+            val rssi = message[3 + i * 3].toUByte().toInt()
+            actisList[serverId] = rssi
+            printLog("Actis$serverId: -${rssi}dB", 100)
+        }
+
+        val outputBuffer = ByteBuffer.allocate(1)
+        printLog("Assign 0", 1)
+        outputBuffer.put(0, 0)
+        channel.write(outputBuffer)
+        channel.close()
     }
 }

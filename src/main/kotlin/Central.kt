@@ -14,7 +14,7 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
     if (data != "") printLog("\ndata=${data.cleanJson()}", 100)
     val centralURL =
         if (USE_HTTPS) URL("https://$CENTRAL_HOST$reqString&secret=$SECRET_KEY")
-        else URL("http://$CENTRAL_HOST$reqString")
+        else URL("http://$CENTRAL_HOST$reqString&secret=$SECRET_KEY")
 
     printLog(centralURL.toString(), 100)
     printLog(data, 100)
