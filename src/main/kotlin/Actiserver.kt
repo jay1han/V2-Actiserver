@@ -214,6 +214,10 @@ fun mainLoop() {
     }
 }
 
+data class Actis(
+    val serverId: Int,
+    val rssi: Int);
+
 fun sideLoop() {
     printLog("Side Loop", 1)
     val localServer = ServerSocketChannel.open().apply {
@@ -242,22 +246,32 @@ fun sideLoop() {
 
         val message = messageBuffer.array()
         val count = message[0].toInt()
-        printLog("Query with $count items", 1)
-        val actisList = mutableMapOf<Int, Int>()
+        printLog("Query with $count items", 10)
+        val actisList = arrayListOf<Actis>()
         for (i in 0 until count) {
             val serverId = message[1 + i * 3].toUByte().toInt() * 256 + message[2 + i * 3].toUByte().toInt()
             val rssi = message[3 + i * 3].toUByte().toInt()
-            actisList[serverId] = rssi
+            actisList.add(Actis(serverId, rssi))
             printLog("Actis$serverId: -${rssi}dB", 100)
         }
 
         val reqString = "action=actimetre-query"
         val data = Json.encodeToString(actisList)
         printLog(data, 100)
+        val assignedStr = sendHttpRequest(reqString, data)
+        val assigned = try {
+            assignedStr.toInt()
+        } catch (e: NumberFormatException) {
+            100
+        }
+        if (assigned < 100) {
+            printLog("Assign $assigned: Actis%03d".format(actisList[assigned].serverId), 10)
+        } else {
+            printLog("Error assignment response: $assignedStr", 1)
+        }
 
         val outputBuffer = ByteBuffer.allocate(1)
-        printLog("Assign 0", 1)
-        outputBuffer.put(0, 0)
+        outputBuffer.put(0, assigned.toByte())
         channel.write(outputBuffer)
         channel.close()
     }
