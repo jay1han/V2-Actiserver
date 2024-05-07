@@ -1,4 +1,6 @@
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.lang.Thread.sleep
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
@@ -248,6 +250,10 @@ fun sideLoop() {
             actisList[serverId] = rssi
             printLog("Actis$serverId: -${rssi}dB", 100)
         }
+
+        val reqString = "action=actimetre-query"
+        val data = Json.encodeToString(actisList)
+        printLog(data, 100)
 
         val outputBuffer = ByteBuffer.allocate(1)
         printLog("Assign 0", 1)
