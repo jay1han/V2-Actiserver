@@ -1,4 +1,5 @@
 
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.lang.Thread.sleep
@@ -214,9 +215,10 @@ fun mainLoop() {
     }
 }
 
+@Serializable
 data class Actis(
     val serverId: Int,
-    val rssi: Int);
+    val rssi: Int)
 
 fun sideLoop() {
     printLog("Side Loop", 1)
@@ -233,7 +235,7 @@ fun sideLoop() {
 
         try {
             inputLen = channel.read(messageBuffer)
-            printLog("Query: read $inputLen", 100)
+            printLog("Query: read $inputLen bytes", 100)
         } catch (e: Throwable) {
             printLog("Side:$e", 1)
             return
@@ -255,7 +257,7 @@ fun sideLoop() {
             printLog("Actis$serverId: -${rssi}dB", 100)
         }
 
-        val reqString = "action=actimetre-query"
+        val reqString = CENTRAL_BIN + "action=actimetre-query"
         val data = Json.encodeToString(actisList)
         printLog(data, 100)
         val assignedStr = sendHttpRequest(reqString, data)
