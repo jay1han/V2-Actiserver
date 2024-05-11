@@ -68,21 +68,7 @@ class GyroData {
     }
 }
 
-class Record(buffer: UByteArray, val sensorId: String, bootEpoch: Long, msgBootEpoch: Long, msgMillis: Long) {
-    private val diffMillis = buffer[0].toLong() * 256 + buffer[1].toLong()
-    val dateTime: ZonedDateTime = ZonedDateTime.ofInstant(
-        Instant.ofEpochSecond(bootEpoch + msgBootEpoch,
-            (msgMillis + diffMillis) * 1_000_000L),
-        ZoneId.of("Z"))
-    private val accelStr = AccelData().read(buffer.sliceArray(2..7)).rawStr
-    private val gyroStr = GyroData().read(buffer.sliceArray(8..11)).rawStr
-    val textStr: String = dateTime.csvFormat() +
-            ".%03d".format(dateTime.nano / 1000000L) +
-            accelStr + gyroStr
-}
-
-class RecordV3(
-    v34: Boolean,
+class Record(
     samplingMode: Int,
     buffer: UByteArray,
     bootEpoch: Long,
@@ -102,14 +88,10 @@ class RecordV3(
 
         when (samplingMode) {
             1 -> accel.read(buffer.sliceArray(0..5))
-            2 -> {
-                if (v34) gyro.read(buffer.sliceArray(0..5))
-                else gyro.read(buffer.sliceArray(0..3))
-            }
+            2 -> gyro.read(buffer.sliceArray(0..5))
             else -> {
                 accel.read(buffer.sliceArray(0..5))
-                if (v34) gyro.read(buffer.sliceArray(6..11))
-                else gyro.read(buffer.sliceArray(6..9))
+                gyro.read(buffer.sliceArray(6..11))
             }
         }
         textStr = dateTime.csvFormat() +
@@ -220,10 +202,6 @@ class SensorInfo(
     }
 
     fun writeData(record: Record): Pair<Boolean, Int> {
-        return writeData(record.dateTime, record.textStr)
-    }
-
-    fun writeData(record: RecordV3): Pair<Boolean, Int> {
         return writeData(record.dateTime, record.textStr)
     }
 

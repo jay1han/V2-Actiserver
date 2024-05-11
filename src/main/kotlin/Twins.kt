@@ -129,6 +129,7 @@ class Actiserver(
             val a = actimetreList[actimId]!!
             a.setInfo(mac, boardType, version, bootTime, sensorBits)
             a.isStopped = false
+            a.setProject(Projects[actimId] ?: 0)
             return a
         }
     }

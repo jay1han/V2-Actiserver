@@ -11,8 +11,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.io.path.*
 
-val Frequencies = listOf(50, 100, 1, 200, 30, 10)
-val FrequenciesV3 = listOf(100, 500, 1000, 2000, 4000, 8000)
+val Frequencies = listOf(100, 500, 1000, 2000, 4000, 8000)
 
 @Serializable
 class ActimetreShort(
@@ -66,8 +65,6 @@ class Actimetre(
     var isDead    : Int = 0,
 ) {
     lateinit var thread: Thread
-    private var v3 = false
-    private var v34 = false
     var bootTime: ZonedDateTime = TimeZero
     var lastSeen: ZonedDateTime = TimeZero
     var lastReport: ZonedDateTime = TimeZero
@@ -79,7 +76,6 @@ class Actimetre(
     private var bootEpoch = 0L
     var frequency = 0
     private var cycleNanoseconds = 200000000L
-    private var lastMessage = TimeZero
     private var samplePoints  = 0
     private var totalPoints = 0
     var rating = 0.0
@@ -87,8 +83,9 @@ class Actimetre(
     var repoNums: Int = 0
     var repoSize: Long = 0
     private var htmlUpdate: ZonedDateTime = TimeZero
+    private var projectId   = 0
     private var projectPath = "Project%02d".format(Projects[actimId])
-    private var projectDir = Path("$REPO_ROOT/$projectPath")
+    private var projectDir  = Path("$REPO_ROOT/$projectPath")
     var isStopped = false
 
     private fun readInto(buffer: ByteBuffer): Int {
@@ -110,190 +107,124 @@ class Actimetre(
 
     fun run(channel: ByteChannel) {
         this.channel = channel
-        if (v3) {
-            while (true) {
-                val headerBuffer = ByteBuffer.allocate(HEADERV3_LENGTH)
-                val inputLen = readInto(headerBuffer)
-                if (inputLen != HEADERV3_LENGTH) {
-                    printLog("${actimName()} received header $inputLen bytes != $HEADERV3_LENGTH", 1)
-                    break
-                }
-
-                lastSeen = now()
-                val sensorHeader = headerBuffer.array().toUByteArray()
-
-                if ((sensorHeader[5].toInt() and 0x40) != 0) {
-                    printLog("${actimName()} Heartbeat", 1000)
-                    continue
-                }
-
-                if (sensorHeader[0].toInt() == 0xFF) {
-                    val messageLen = sensorHeader[3].toInt() and 0x3F
-                    val messageBuffer = ByteBuffer.allocate(messageLen)
-                    readInto(messageBuffer)
-                    val messageText = messageBuffer.array().decodeToString()
-                    printReport("[${actimName()}] $messageText")
-                    val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
-                    sendHttpRequest(reqString, "[${lastSeen.prettyFormat()}] $messageText")
-                    continue
-                }
-                val sensorName = "${'1' + ((sensorHeader[3].toInt() and 0x80) shr 7)}" +
-                        "${(if ((sensorHeader[5].toInt() and 0x80) != 0) 'a' else 'A') +
-                                ((sensorHeader[3].toInt() and 0x40) shr 6)}"
-                if (!sensorList.containsKey(sensorName)) {
-                    printLog("${actimName()} undeclared sensor $sensorName", 1)
-                    printLog(sensorHeader.dump(), 10)
-                    break
-                }
-
-                val msgBootEpoch = sensorHeader.getInt3At(0).toLong()
-                val msgMicros = sensorHeader.getInt3At20(5).toLong()
-                val msgDateTime = ZonedDateTime.ofInstant(
-                    Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
-                    ZoneId.of("Z")
-                )
-
-                if (sensorHeader[5].toInt() and 0x10 != 0) {
-                    val messageLen = ((sensorHeader[3].toInt() and 0x3F) + 1) * 4
-                    val messageBuffer = ByteBuffer.allocate(messageLen)
-                    readInto(messageBuffer)
-                    val messageText = messageBuffer.array().decodeToString()
-                    printReport("[${actimName()}-$sensorName@${msgDateTime.microFormat()}] $messageText")
-                    val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
-                    sendHttpRequest(reqString, "[${msgDateTime.prettyFormat()}] $messageText")
-                    continue
-                }
-                val count = sensorHeader[3].toInt() and 0x3F
-
-                rssi = (sensorHeader[4].toInt() shr 5) and 0x07
-                val samplingMode = (sensorHeader[4].toInt() shr 3) and 0x03
-                val dataLength = when (samplingMode) {
-                    1 -> 6
-                    2 -> if (v34) 6 else 4
-                    else -> if (v34) 12 else 10
-                }
-
-                val msgFrequency = sensorHeader[4].toInt() and 0x07
-                if (msgFrequency >= FrequenciesV3.size) {
-                    printLog("${actimName()} Frequency code $msgFrequency out of bounds", 1)
-                    printLog(sensorHeader.dump(), 10)
-                    break
-                }
-                if (frequency != FrequenciesV3[msgFrequency]) {
-                    frequency = FrequenciesV3[msgFrequency]
-                    cycleNanoseconds = 1_000_000_000L / frequency
-                    totalPoints = 0
-                    samplePoints = 0
-                    repoSize = 0
-                    repoNums = 0
-
-                    if (!projectDir.exists()) {
-                        projectDir.createDirectory()
-                    }
-                    projectDir.forEachDirectoryEntry("${actimName()}*") {
-                        repoSize += it.fileSize()
-                        repoNums++
-                    }
-                }
-
-                if (count > 0) {
-                    val sensorBuffer = ByteBuffer.allocate(dataLength * count)
-                    val readLength = readInto(sensorBuffer)
-                    if (readLength != dataLength * count) {
-                        printLog("${actimName()} Data length $readLength != ${dataLength * count}", 1)
-                        break
-                    }
-
-                    if (!isStopped) {
-                        val sensorData = sensorBuffer.array().toUByteArray()
-                        for (index in 0 until count) {
-                            val record = RecordV3(
-                                v34,
-                                samplingMode,
-                                sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
-                                bootEpoch, msgBootEpoch,
-                                msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
-                            )
-                            val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
-                            htmlData(newFile)
-                        }
-                    }
-                } else {
-                    printLog("${actimName()}-$sensorName sent 0-data", 1000)
-                }
-
-                totalPoints += sensorList[sensorName]!!.countPoints(msgDateTime, cycleNanoseconds, count)
-                samplePoints += count
-                if (totalPoints > 0 && samplePoints <= totalPoints)
-                    rating = 1.0 - (samplePoints.toDouble() / totalPoints.toDouble())
-                if (totalPoints > 60 * frequency && rating > 20.0) {
-                    printLog("${actimName()} unreliable, restarting", 1)
-                    break
-                }
+        while (true) {
+            val headerBuffer = ByteBuffer.allocate(HEADERV3_LENGTH)
+            val inputLen = readInto(headerBuffer)
+            if (inputLen != HEADERV3_LENGTH) {
+                printLog("${actimName()} received header $inputLen bytes != $HEADERV3_LENGTH", 1)
+                break
             }
-        } else {
-            while (true) {
-                val sensorBuffer = ByteBuffer.allocate(msgLength)
-                val dataLen = readInto(sensorBuffer)
-                if (dataLen != msgLength) {
-                    printLog("Data length $dataLen != $msgLength", 1)
-                    break
-                }
 
-                lastSeen = now()
-                val sensorData = sensorBuffer.array().toUByteArray()
-                val msgBootEpoch = sensorData.getInt3At(0).toLong()
-                val msgMillis = (sensorData[3].toLong() and 0x03) * 256 +
-                        sensorData[4].toLong()
-                val msgDateTime = ZonedDateTime.ofInstant(
-                    Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMillis * 1_000_000L),
-                    ZoneId.of("Z")
-                )
+            lastSeen = now()
+            val sensorHeader = headerBuffer.array().toUByteArray()
 
-                val msgFrequency = (sensorData[3].toInt() shr 2) and 0x07
+            if ((sensorHeader[5].toInt() and 0x40) != 0) {
+                printLog("${actimName()} Heartbeat", 1000)
+                continue
+            }
+
+            if (sensorHeader[0].toInt() == 0xFF) {
+                val messageLen = sensorHeader[3].toInt() and 0x3F
+                val messageBuffer = ByteBuffer.allocate(messageLen)
+                readInto(messageBuffer)
+                val messageText = messageBuffer.array().decodeToString()
+                printReport("[${actimName()}] $messageText")
+                val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
+                sendHttpRequest(reqString, "[${lastSeen.prettyFormat()}] $messageText")
+                continue
+            }
+            val sensorName = "${'1' + ((sensorHeader[3].toInt() and 0x80) shr 7)}" +
+                    "${(if ((sensorHeader[5].toInt() and 0x80) != 0) 'a' else 'A') +
+                            ((sensorHeader[3].toInt() and 0x40) shr 6)}"
+            if (!sensorList.containsKey(sensorName)) {
+                printLog("${actimName()} undeclared sensor $sensorName", 1)
+                printLog(sensorHeader.dump(), 10)
+                break
+            }
+
+            val msgBootEpoch = sensorHeader.getInt3At(0).toLong()
+            val msgMicros = sensorHeader.getInt3At20(5).toLong()
+            val msgDateTime = ZonedDateTime.ofInstant(
+                Instant.ofEpochSecond(bootEpoch + msgBootEpoch, msgMicros * 1000L),
+                ZoneId.of("Z")
+            )
+
+            if (sensorHeader[5].toInt() and 0x10 != 0) {
+                val messageLen = ((sensorHeader[3].toInt() and 0x3F) + 1) * 4
+                val messageBuffer = ByteBuffer.allocate(messageLen)
+                readInto(messageBuffer)
+                val messageText = messageBuffer.array().decodeToString()
+                printReport("[${actimName()}-$sensorName@${msgDateTime.microFormat()}] $messageText")
+                val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
+                sendHttpRequest(reqString, "[${msgDateTime.prettyFormat()}] $messageText")
+                continue
+            }
+            val count = sensorHeader[3].toInt() and 0x3F
+
+            rssi = (sensorHeader[4].toInt() shr 5) and 0x07
+            val samplingMode = (sensorHeader[4].toInt() shr 3) and 0x03
+            val dataLength = when (samplingMode) {
+                1 -> 6
+                2 -> 6
+                else -> 12
+            }
+
+            val msgFrequency = sensorHeader[4].toInt() and 0x07
+            if (msgFrequency >= Frequencies.size) {
+                printLog("${actimName()} Frequency code $msgFrequency out of bounds", 1)
+                printLog(sensorHeader.dump(), 10)
+                break
+            }
+            if (frequency != Frequencies[msgFrequency]) {
                 frequency = Frequencies[msgFrequency]
                 cycleNanoseconds = 1_000_000_000L / frequency
+                totalPoints = 0
+                samplePoints = 0
+                repoSize = 0
+                repoNums = 0
 
-                rssi = (sensorData[3].toInt() shr 5) and 0x07
-
-                if (lastMessage == TimeZero) {
-                    totalPoints = 1
-                    samplePoints = 0
-                    repoNums = 0
-                    repoSize = 0
-
-                    if (!projectDir.exists()) {
-                        projectDir.createDirectory()
-                    }
-                    projectDir.forEachDirectoryEntry("${actimName()}*") {
-                        repoSize += it.fileSize()
-                        repoNums++
-                    }
-                } else {
-                    val cycles = Duration.between(lastMessage, msgDateTime)
-                        .dividedBy(Duration.ofNanos(cycleNanoseconds))
-                        .toInt()
-                    if (cycles > frequency) {
-                        printLog("${actimName()} jumped over ${cycles - 1} cycles", 1000)
-                    }
-                    totalPoints += cycles
-                    samplePoints += 1
-                    rating = 1.0 - (samplePoints.toDouble() / totalPoints.toDouble())
+                if (!projectDir.exists()) {
+                    projectDir.createDirectory()
                 }
-                lastMessage = msgDateTime.minusNanos(cycleNanoseconds / 10L)
-
-                var index = HEADER_LENGTH
-                while (index < msgLength) {
-                    val record = Record(
-                        sensorData.sliceArray(index until (index + DATA_LENGTH)),
-                        sensorOrder[(index - HEADER_LENGTH) / DATA_LENGTH], bootEpoch, msgBootEpoch, msgMillis
-                    )
-                    if (!sensorList.containsKey(record.sensorId))
-                        sensorList[record.sensorId] = SensorInfo(actimId, record.sensorId)
-                    val (newFile, sizeWritten) = sensorList[record.sensorId]!!.writeData(record)
-                    htmlData(newFile)
-                    index += DATA_LENGTH
+                projectDir.forEachDirectoryEntry("${actimName()}*") {
+                    repoSize += it.fileSize()
+                    repoNums++
                 }
+                printLog("${actimName()} repo $repoNums / $repoSize", 100)
+            }
+
+            if (count > 0) {
+                val sensorBuffer = ByteBuffer.allocate(dataLength * count)
+                val readLength = readInto(sensorBuffer)
+                if (readLength != dataLength * count) {
+                    printLog("${actimName()} Data length $readLength != ${dataLength * count}", 1)
+                    break
+                }
+
+                if (!isStopped) {
+                    val sensorData = sensorBuffer.array().toUByteArray()
+                    for (index in 0 until count) {
+                        val record = Record(
+                            samplingMode,
+                            sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
+                            bootEpoch, msgBootEpoch,
+                            msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
+                        )
+                        val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
+                        htmlData(newFile)
+                    }
+                }
+            } else {
+                printLog("${actimName()}-$sensorName sent 0-data", 1000)
+            }
+
+            totalPoints += sensorList[sensorName]!!.countPoints(msgDateTime, cycleNanoseconds, count)
+            samplePoints += count
+            if (totalPoints > 0 && samplePoints <= totalPoints)
+                rating = 1.0 - (samplePoints.toDouble() / totalPoints.toDouble())
+            if (totalPoints > 60 * frequency && rating > 20.0) {
+                printLog("${actimName()} unreliable, restarting", 1)
+                break
             }
         }
     }
@@ -455,8 +386,6 @@ class Actimetre(
         this.boardType = boardType
         this.version = version
         this.bootTime = bootTime
-        v3 = version >= "300"
-        v34 = version >= "340"
         lastSeen = bootTime
         lastReport = TimeZero
         totalPoints = 0
@@ -484,8 +413,10 @@ class Actimetre(
     }
 
     fun setProject(projectId: Int) {
+        this.projectId = projectId
         projectPath = "Project%02d".format(projectId)
         projectDir = Path("$REPO_ROOT/$projectPath")
+        printLog("${actimName()} project $projectId")
     }
 
     fun actimName(): String {
