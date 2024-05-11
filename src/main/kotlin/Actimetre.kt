@@ -83,7 +83,7 @@ class Actimetre(
     var repoNums: Int = 0
     var repoSize: Long = 0
     private var htmlUpdate: ZonedDateTime = TimeZero
-    private var projectId   = 0
+    var projectId   = 0
     private var projectPath = "Project%02d".format(Projects[actimId])
     private var projectDir  = Path("$REPO_ROOT/$projectPath")
     var isStopped = false
@@ -129,7 +129,7 @@ class Actimetre(
                 readInto(messageBuffer)
                 val messageText = messageBuffer.array().decodeToString()
                 printReport("[${actimName()}] $messageText")
-                val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
+                val reqString = CENTRAL_BIN + "action=actim-report&serverId=$serverId&actimId=$actimId"
                 sendHttpRequest(reqString, "[${lastSeen.prettyFormat()}] $messageText")
                 continue
             }
@@ -183,9 +183,7 @@ class Actimetre(
                 repoSize = 0
                 repoNums = 0
 
-                if (!projectDir.exists()) {
-                    projectDir.createDirectory()
-                }
+                if (!projectDir.exists()) projectDir.createDirectory()
                 projectDir.forEachDirectoryEntry("${actimName()}*") {
                     repoSize += it.fileSize()
                     repoNums++
@@ -416,6 +414,7 @@ class Actimetre(
         this.projectId = projectId
         projectPath = "Project%02d".format(projectId)
         projectDir = Path("$REPO_ROOT/$projectPath")
+        if (!projectDir.exists()) projectDir.createDirectory()
         printLog("${actimName()} project $projectId")
     }
 

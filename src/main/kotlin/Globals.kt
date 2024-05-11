@@ -20,7 +20,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "400"
+const val VERSION_STRING = "402"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true

@@ -152,7 +152,7 @@ class SensorInfo(
             file.setWritable(true, false)
             fileHandle = BufferedWriter(FileWriter(file, true))
             fileHandle.append("\n")
-            printLog("Continue data file $lastRepoFile", 10)
+            printLog("Continue data file $projectDir/$fileName", 10)
         }
     }
 
@@ -166,7 +166,7 @@ class SensorInfo(
         file.setWritable(true, false)
         fileHandle = BufferedWriter(FileWriter(file))
         fileHandle.append("\n")
-        printLog("Start data file $fileName at $fileDate", 10)
+        printLog("Start data file $projectDir/$fileName at $fileDate", 10)
     }
 
     fun countPoints(msgDateTime: ZonedDateTime, cycleNanoseconds: Long, count: Int): Int {

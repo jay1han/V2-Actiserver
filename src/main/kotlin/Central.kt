@@ -58,10 +58,10 @@ fun selfToCentral() {
                 if (Self.actimetreList.isEmpty()) "no Actimetres"
                 else Self.actimetreList.keys.sorted().joinToString(separator = " ") {
                     "Actim%04d".format(it) + Self.actimetreList[it]?.let {
-                        "@${it.frequency}" + "(${it.sensorStr()})" +
-                                if (it.isDead > 0) "Dead"
-                                else if (it.isStopped) "Stopped"
-                                else "%.3f%%".format(it.rating * 100.0)
+                        "[${it.projectId}]@${it.frequency}" + "(${it.sensorStr()})" +
+                        if (it.isDead > 0) "Dead"
+                        else if (it.isStopped) "Stopped"
+                        else "%.3f%%".format(it.rating * 100.0)
                     }
                 }, 1)
         val reqString = CENTRAL_BIN + "action=actiserver3&serverId=$serverId"
