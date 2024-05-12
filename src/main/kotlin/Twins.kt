@@ -43,7 +43,8 @@ class ActiserverShort(
     @Serializable(with = ActimetreShortList::class)
     @Required var actimetreList: Map<Int, ActimetreShort> = mapOf(),
 ) {
-    @Required val isDown: Int = 0
+    @Required var isLocal: Boolean = true  // Compatibility
+    @Required val isDown: Int = 0          // Compatibility
     @Required var cpuIdle: Float = 0.0f
     @Required var memAvail: Float = 0.0f
     @Required var diskTput: Float = 0.0f
