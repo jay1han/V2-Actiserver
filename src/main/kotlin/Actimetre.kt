@@ -306,7 +306,7 @@ class Actimetre(
     }
 
     fun stop() {
-        if (isStopped) return
+// idempotent        if (isStopped) return
         printLog("${actimName()} stopped", 1)
         isStopped = true
         for (sensorInfo in sensorList.values) {
