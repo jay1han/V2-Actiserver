@@ -34,7 +34,6 @@ class ActiserverShort(
     @Required var version : String = "000",
     @Required var channel : Int = 0,
     @Required var ip: String = "0.0.0.0",
-    @Required var isLocal: Boolean = false,
     @Required var diskSize: Long = 0,
     @Required var diskFree: Long = 0,
     @Serializable(with = DateTimeAsString::class)
@@ -56,7 +55,6 @@ class ActiserverShort(
         version = s.version
         channel = s.channel
         ip = s.ip
-        isLocal = s.isLocal
         diskSize = s.diskSize
         diskFree = s.diskFree
         lastReport = s.lastReport
@@ -79,7 +77,6 @@ class Actiserver(
     val version : String = "000",
     val channel : Int = 0,
     val ip      : String = "0.0.0.0",
-    val isLocal : Boolean = false,
 ) {
     var diskSize: Long = 0
     var diskFree: Long = 0
