@@ -5,10 +5,12 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.FileWriter
 import java.io.PrintWriter
 import java.nio.file.Path
@@ -20,7 +22,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "403"
+const val VERSION_STRING = "411"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -39,6 +41,8 @@ var SECRET_KEY: String = "YouDontKnowThis"
 var REPO_ROOT = "/media/actimetre"
 const val LOG_FILE = "/etc/actimetre/server.log"
 const val REPORT_FILE = "/etc/actimetre/report.log"
+const val REGISTRY_FILE = "/etc/actimetre/registry.data"
+const val PROJECTS_FILE = "/etc/actimetre/projects.data"
 const val CENTRAL_BIN = "/bin/acticentral.py?"
 val ACTIM_DEAD_TIME:  Duration = Duration.ofSeconds(3)
 val ACTIM_BOOT_TIME:  Duration = Duration.ofSeconds(5)
@@ -73,7 +77,6 @@ var netConfigOK = ""
 
 class Options(configFileName: String = "") {
     var test: Boolean = false
-    var isLocal: Boolean = false
 
     init {
         val configFile = File(
@@ -88,7 +91,6 @@ class Options(configFileName: String = "") {
                     println("$key = $value")
                     when (key.lowercase()) {
                         "repo_root" -> REPO_ROOT = value
-                        "local_repo" -> isLocal = value.lowercase().toBoolean()
                         "central_host" -> CENTRAL_HOST = value
                         "use_https" -> USE_HTTPS = value.toBoolean()
                         "max_repo_size" -> MAX_REPO_SIZE = value.replace("_", "").toInt()
@@ -306,7 +308,21 @@ var Registry = mutableMapOf<String, Int>()
 
 fun loadRegistry(registryText: String) {
     Registry = Json.decodeFromString<MutableMap<String, Int>>(registryText)
-    printLog(Registry.toString(), 1)
+    printLog(Registry.toString(), 10)
+}
+
+fun saveRegistry() {
+    File(REGISTRY_FILE).writeText(Json.encodeToString<MutableMap<String, Int>>(Registry))
+}
+
+fun readRegistry() {
+    printLog("Read registry", 1)
+    try {
+        Registry = Json.decodeFromString<MutableMap<String, Int>>(File(REGISTRY_FILE).readText())
+        printLog(Registry.toString(), 100)
+    } catch (e: FileNotFoundException) {
+        printLog("No local Registry file", 1)
+    }
 }
 
 var Projects = mutableMapOf<Int, Int>()
@@ -324,7 +340,21 @@ fun loadProjects(data: String) {
             }
         }
     }
-    printLog(Projects.toString(), 1)
+    printLog(Projects.toString(), 10)
+}
+
+fun saveProjects() {
+    File(PROJECTS_FILE).writeText(Json.encodeToString<MutableMap<Int, Int>>(Projects))
+}
+
+fun readProjects() {
+    printLog("Read projects", 1)
+    try {
+        Projects = Json.decodeFromString<MutableMap<Int, Int>>(File(PROJECTS_FILE).readText())
+        printLog(Projects.toString(), 100)
+    } catch (e: FileNotFoundException) {
+        printLog("No local Projects file", 1)
+    }
 }
 
 fun String.toFile(projectDir: Path): File {return Path(projectDir.toString(), this).toFile()}

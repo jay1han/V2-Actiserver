@@ -124,6 +124,7 @@ fun fetchRegistry() {
     val reqString = CENTRAL_BIN + "action=registry&serverId=$serverId"
     val responseText = sendHttpRequest(reqString)
     loadRegistry(responseText)
+    saveRegistry()
 }
 
 fun fetchProjects() {
@@ -131,4 +132,5 @@ fun fetchProjects() {
     val reqString = CENTRAL_BIN + "action=projects&serverId=$serverId"
     val responseText = sendHttpRequest(reqString)
     loadProjects(responseText)
+    saveProjects()
 }
