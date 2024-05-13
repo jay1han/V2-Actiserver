@@ -59,56 +59,62 @@ fun selfToCentral() {
                 else Self.actimetreList.keys.sorted().joinToString(separator = " ") {
                     "Actim%04d".format(it) + Self.actimetreList[it]?.let {
                         "[${it.projectId}]@${it.frequency}" + "(${it.sensorStr()})" +
-                        if (it.isDead > 0) "Dead"
-                        else if (it.isStopped) "Stopped"
-                        else "%.3f%%".format(it.rating * 100.0)
+                                if (it.isDead > 0) "Dead"
+                                else if (it.isStopped) "Stopped"
+                                else "%.3f%%".format(it.rating * 100.0)
                     }
-                }, 1)
+                }, 1
+        )
         val reqString = CENTRAL_BIN + "action=actiserver3&serverId=$serverId"
         val data = Json.encodeToString(Self.toCentral())
         val responseText = sendHttpRequest(reqString, data)
-        if (responseText.startsWith("+")) {
-            val actimId = responseText.substring(1).substringBefore(':').toInt()
-            val command = responseText.substring(1).substringAfter(':').toInt()
-            if (actimId in Self.actimetreList.keys) {
-                when (command) {
-                    0x10, 0xF0 -> {
-                        printLog("Send command ${"0x%02X".format(command)} to Actimetre $actimId", 1)
-                        val actim = Self.actimetreList[actimId]!!
-                        val commandBuffer = ByteBuffer.allocate(1)
-                        commandBuffer.array()[0] = command.toByte()
-                        actim.channel.write(commandBuffer)
-                    }
-                    0x20 -> {
-                        printLog("Clean up Actim%04d data".format(actimId), 1)
-                        val actim = Self.actimetreList[actimId]!!
-                        if (actim.isDead == 0) {
-                            printLog("${actim.actimName()} is not dead!", 1)
-                        } else {
-                            actim.cleanup()
+        for (line in responseText.lines()) {
+            if (line.startsWith("+")) {
+                val actimId = responseText.substring(1).substringBefore(':').toInt()
+                val command = responseText.substring(1).substringAfter(':').toInt()
+                if (actimId in Self.actimetreList.keys) {
+                    when (command) {
+                        0x10, 0xF0 -> {
+                            printLog("Send command ${"0x%02X".format(command)} to Actimetre $actimId", 1)
+                            val actim = Self.actimetreList[actimId]!!
+                            val commandBuffer = ByteBuffer.allocate(1)
+                            commandBuffer.array()[0] = command.toByte()
+                            actim.channel.write(commandBuffer)
+                        }
+
+                        0x20 -> {
+                            printLog("Clean up Actim%04d data".format(actimId), 1)
+                            val actim = Self.actimetreList[actimId]!!
+                            if (actim.isDead == 0) {
+                                printLog("${actim.actimName()} is not dead!", 1)
+                            } else {
+                                actim.cleanup()
+                                selfToCentral()
+                            }
+                        }
+
+                        0x30 -> {
+                            printLog("Stop Actimetre $actimId", 1)
+                            val actim = Self.actimetreList[actimId]!!
+                            val commandBuffer = ByteBuffer.allocate(1)
+                            commandBuffer.array()[0] = command.toByte()
+                            actim.channel.write(commandBuffer)
+                            actim.stop()
                             selfToCentral()
                         }
+
+                        else -> {
+                            printLog("Unknown command $command for Actimetre $actimId", 1)
+                        }
                     }
-                    0x30 -> {
-                        printLog("Stop Actimetre $actimId", 1)
-                        val actim = Self.actimetreList[actimId]!!
-                        val commandBuffer = ByteBuffer.allocate(1)
-                        commandBuffer.array()[0] = command.toByte()
-                        actim.channel.write(commandBuffer)
-                        actim.stop()
-                        selfToCentral()
-                    }
-                    else -> {
-                        printLog("Unknown command $command for Actimetre $actimId", 1)
-                    }
+                } else {
+                    printLog("No Actimetre $actimId to apply $command to", 1)
                 }
-            } else {
-                printLog("No Actimetre $actimId to apply $command to", 1)
+            } else if (responseText.startsWith("!")) {
+                Self.dbTime = now()
+                fetchRegistry()
+                fetchProjects()
             }
-        } else if (responseText.startsWith("!")) {
-            Self.dbTime = now()
-            fetchRegistry()
-            fetchProjects()
         }
     }
 }
