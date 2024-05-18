@@ -70,8 +70,8 @@ fun selfToCentral() {
         val responseText = sendHttpRequest(reqString, data)
         for (line in responseText.lines()) {
             if (line.startsWith("+")) {
-                val actimId = responseText.substring(1).substringBefore(':').toInt()
-                val command = responseText.substring(1).substringAfter(':').toInt()
+                val actimId = line.substring(1).substringBefore(':').toInt()
+                val command = line.substring(1).substringAfter(':').toInt()
                 if (actimId in Self.actimetreList.keys) {
                     when (command) {
                         0x10, 0xF0 -> {
@@ -110,7 +110,7 @@ fun selfToCentral() {
                 } else {
                     printLog("No Actimetre $actimId to apply $command to", 1)
                 }
-            } else if (responseText.startsWith("!")) {
+            } else if (line.startsWith("!")) {
                 Self.dbTime = now()
                 fetchRegistry()
                 fetchProjects()

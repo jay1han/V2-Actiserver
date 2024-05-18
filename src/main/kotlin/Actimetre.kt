@@ -306,11 +306,19 @@ class Actimetre(
     }
 
     fun stop() {
-// idempotent        if (isStopped) return
         printLog("${actimName()} stopped", 1)
         isStopped = true
         for (sensorInfo in sensorList.values) {
             sensorInfo.closeAndSync()
+        }
+        htmlData(true)
+    }
+
+    fun stopStart() {
+        printLog("${actimName()} starts stopped", 1)
+        isStopped = true
+        for (sensorInfo in sensorList.values) {
+            sensorInfo.closeAndClear()
         }
         htmlData(true)
     }
@@ -325,8 +333,8 @@ class Actimetre(
     }
 
     fun cleanup() {
-        if (isDead == 0) {
-            printLog("${actimName()} is not dead", 1)
+        if (isDead == 0 && !isStopped) {
+            printLog("${actimName()} is not dead nor stopped", 1)
             return
         }
         if (!projectDir.exists()) {

@@ -119,7 +119,8 @@ class Actiserver(
         diskFree = free
     }
 
-    fun updateActimetre(actimId: Int, mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: UByte): Actimetre {
+    fun updateActimetre(actimId: Int, mac: String, boardType: String, version: String,
+                        bootTime: ZonedDateTime, sensorBits: UByte): Actimetre {
         synchronized(this) {
             if (!actimetreList.containsKey(actimId)) {
                 actimetreList[actimId] = Actimetre(actimId, serverId = serverId)

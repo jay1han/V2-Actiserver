@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalUnsignedTypes::class)
 
 import java.io.BufferedWriter
+import java.io.File
 import java.io.FileWriter
 import java.time.Duration
 import java.time.Instant
@@ -218,6 +219,11 @@ class SensorInfo(
     fun closeAndSync() {
         closeIfOpen()
         runSync(fileName.toFile(projectDir).toString(), true)
+    }
+
+    fun closeAndClear() {
+        closeIfOpen()
+        File(fileName.toFile(projectDir).toString()).delete()
     }
 }
 

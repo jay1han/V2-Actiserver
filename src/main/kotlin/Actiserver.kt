@@ -181,6 +181,13 @@ fun newClient (channel: ByteChannel) {
     channel.write(outputBuffer)
 
     a.thread = thread(start=true, name="Actim%04d".format(newActimId), priority=4, isDaemon = false) {
+        if (a.projectId == 0) {
+            val commandBuffer = ByteBuffer.allocate(1)
+            commandBuffer.array()[0] = 0x30
+            channel.write(commandBuffer)
+            a.stopStart()
+            selfToCentral()
+        }
         a.run(channel)
         a.dies()
         printLog("Cleaning up ${a.actimName()}", 1)
