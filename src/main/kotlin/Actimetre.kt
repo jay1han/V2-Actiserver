@@ -155,7 +155,7 @@ class Actimetre(
                 readInto(messageBuffer)
                 val messageText = messageBuffer.array().decodeToString()
                 printReport("[${actimName()}-$sensorName@${msgDateTime.microFormat()}] $messageText")
-                val reqString = CENTRAL_BIN + "action=report&serverId=$serverId&actimId=$actimId"
+                val reqString = CENTRAL_BIN + "action=actim-report&serverId=$serverId&actimId=$actimId"
                 sendHttpRequest(reqString, "[${msgDateTime.prettyFormat()}] $messageText")
                 continue
             }
