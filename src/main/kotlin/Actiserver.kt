@@ -253,6 +253,9 @@ fun sideLoop() {
             return
         }
 
+        globalStat()
+        selfToCentral()
+
         val message = messageBuffer.array()
         val count = message[0].toInt()
         printLog("Query with $count items", 10)
