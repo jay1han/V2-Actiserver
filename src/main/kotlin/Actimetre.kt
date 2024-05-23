@@ -305,6 +305,16 @@ class Actimetre(
         if (this::thread.isInitialized) thread.join()
     }
 
+    fun sendCommand(command: Int) {
+        val commandBuffer = ByteBuffer.allocate(1)
+        commandBuffer.array()[0] = command.toByte()
+        try {
+            channel.write(commandBuffer)
+        } catch(e: Exception) {
+            printLog("${actimName()} can't send command $command", 1)
+        }
+    }
+
     fun stop() {
         printLog("${actimName()} stopped", 1)
         isStopped = true

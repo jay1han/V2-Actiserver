@@ -77,9 +77,7 @@ fun selfToCentral() {
                         0x10, 0xF0 -> {
                             printLog("Send command ${"0x%02X".format(command)} to Actimetre $actimId", 1)
                             val actim = Self.actimetreList[actimId]!!
-                            val commandBuffer = ByteBuffer.allocate(1)
-                            commandBuffer.array()[0] = command.toByte()
-                            actim.channel.write(commandBuffer)
+                            actim.sendCommand(command)
                         }
 
                         0x20 -> {
@@ -96,9 +94,7 @@ fun selfToCentral() {
                         0x30 -> {
                             printLog("Stop Actimetre $actimId", 1)
                             val actim = Self.actimetreList[actimId]!!
-                            val commandBuffer = ByteBuffer.allocate(1)
-                            commandBuffer.array()[0] = command.toByte()
-                            actim.channel.write(commandBuffer)
+                            actim.sendCommand(command)
                             actim.stop()
                             selfToCentral()
                         }

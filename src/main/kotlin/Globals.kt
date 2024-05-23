@@ -22,7 +22,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "415"
+const val VERSION_STRING = "416"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -184,11 +184,6 @@ fun Init() {
     if (myIfname == "") netConfigOK += "Can't find AP interface\n"
     if (myIp == "") netConfigOK += "Can't find my IP\n"
     if (serverId == 0) netConfigOK += "Can't find my server ID\n"
-}
-
-val localRepo: Boolean = run {
-    val df = "/usr/bin/df $REPO_ROOT".runCommand().lines()[1]
-    df.startsWith("/dev/")
 }
 
 class Disk {
