@@ -333,13 +333,12 @@ class Actimetre(
         htmlData(true)
     }
 
-    fun restart() {
+    fun close() {
         for (sensorInfo in sensorList.values) {
             sensorInfo.closeIfOpen()
         }
         if (this::channel.isInitialized) channel.close()
-        this.isDead = 0
-        htmlData(true)
+        join()
     }
 
     fun cleanup() {
