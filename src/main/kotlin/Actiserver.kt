@@ -254,8 +254,8 @@ fun sideLoop() {
             return
         }
 
-        globalStat()
-        selfToCentral()
+//        globalStat()
+//        selfToCentral()
 
         val message = messageBuffer.array()
         val count = message[0].toInt()

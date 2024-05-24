@@ -22,7 +22,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "417"
+const val VERSION_STRING = "418"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -194,13 +194,17 @@ class Disk {
 
 class Stat {
     private val diskDevice = "/usr/bin/df $REPO_ROOT".runCommand().lines()[1].split(Regex("\\s+"))[0].split('/').last()
-    private val processBuilder = ProcessBuilder("/usr/bin/iostat", "-sxycd", diskDevice, ACTIS_STAT_SECS.toString())
+    private val processBuilder = ProcessBuilder("/usr/bin/iostat", "-sxcd", diskDevice, ACTIS_STAT_SECS.toString())
     private val process = processBuilder.start()
     private val iostat = process.inputStream.bufferedReader()
     var cpuIdle: Float = 0.0f
     var memAvailable: Float = 0.0f
     var diskThroughput: Float = 0.0f
     var diskUtilization: Float = 0.0f
+
+    init {
+        read()
+    }
 
     fun read() {
         val memFree = "/usr/bin/free".runCommand()
