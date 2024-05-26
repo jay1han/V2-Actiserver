@@ -80,10 +80,14 @@ fun main(args: Array<String>) {
     var clientCount = 0
     while (!shuttingDown) {
         println("Listening... $clientCount")
-        val socket = actiServer.accept()
-        if (shuttingDown) break
-        clientCount += 1
-        newClient(socket as ByteChannel)
+        try {
+            val socket = actiServer.accept()
+            if (shuttingDown) break
+            clientCount += 1
+            newClient(socket as ByteChannel)
+        } catch (e: Throwable) {
+            printLog("Actiserver:$e", 1)
+        }
     }
 }
 
@@ -236,7 +240,12 @@ fun sideLoop() {
     }
 
     while (true) {
-        val channel = localServer.accept() as ByteChannel
+        val channel = try {
+            localServer.accept() as ByteChannel
+        } catch (e:Throwable) {
+            printLog("Side accept:$e", 1)
+            continue
+        }
         val messageBuffer = ByteBuffer.allocate(QUERY_LENGTH)
         val inputLen: Int
         println("New Actimetre")
@@ -245,8 +254,8 @@ fun sideLoop() {
             inputLen = channel.read(messageBuffer)
             printLog("Query: read $inputLen bytes", 100)
         } catch (e: Throwable) {
-            printLog("Side:$e", 1)
-            return
+            printLog("Side read:$e", 1)
+            continue
         }
 
         if (inputLen != QUERY_LENGTH) {
