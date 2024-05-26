@@ -22,13 +22,13 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "419"
+const val VERSION_STRING = "420"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
 const val ACTI_PORT = 2883
 const val SIDE_PORT = 2882
-var MAX_REPO_SIZE = 1_000_000_000
+var MAX_REPO_SIZE = 1_000_000_000L
 var MAX_REPO_TIME: Duration = Duration.ofHours(24)
 var SYNC_MINS: Duration = Duration.ofMinutes(5)
 var CLEANUP_EXEC = ""
@@ -50,7 +50,7 @@ const val ACTIS_CHECK_SECS = 15L
 const val ACTIS_STAT_SECS  = 60L
 var LOG_SIZE = 10_000_000
 var VERBOSITY = 10
-
+var htmlInfo = ""
 var options = Options("")
 
 fun String.runCommand(): String {
@@ -93,7 +93,7 @@ class Options(configFileName: String = "") {
                         "repo_root" -> REPO_ROOT = value
                         "central_host" -> CENTRAL_HOST = value
                         "use_https" -> USE_HTTPS = value.toBoolean()
-                        "max_repo_size" -> MAX_REPO_SIZE = value.replace("_", "").toInt()
+                        "max_repo_size" -> MAX_REPO_SIZE = value.replace("_", "").toLong()
                         "max_repo_time" -> MAX_REPO_TIME = Duration.ofHours(value.toLong())
                         "secret_key" -> SECRET_KEY = value
                         "cleanup_exec" -> CLEANUP_EXEC = value
@@ -116,6 +116,13 @@ class Options(configFileName: String = "") {
         } catch (e: Throwable) {
             printLog("Config:$e", 1)
         }
+
+        htmlInfo =
+            """
+            File max size ${MAX_REPO_SIZE.printSize()}, max duration ${MAX_REPO_TIME.print()}<br>
+            Sync command: "$SYNC_EXEC", runs ${SYNC_MINS.print()} after death<br>
+            Log verbosity $VERBOSITY, max size $LOG_SIZE<br>
+            """.trimIndent()
     }
 }
 
@@ -391,8 +398,18 @@ fun ZonedDateTime.csvFormat(): String {
     return this.format(csvFormat)
 }
 
-fun Duration.printSec(): String {
-    return "${this.toSeconds()}s"
+fun Duration.print(): String {
+    if (this < Duration.ofSeconds(120)) {
+        return "${this.toSeconds()}sec"
+    } else if (this < Duration.ofMinutes(120)) {
+        return "${this.toMinutes()}min"
+    } else if (this < Duration.ofHours(48)) {
+        return "${this.toHours()}hr"
+    } else if (this < Duration.ofDays(60)) {
+        return "${this.toDays()}d"
+    } else {
+        return "${(this.toDays() / 60).toInt()}mo"
+    }
 }
 
 fun ZonedDateTime.actiFormat(): String {

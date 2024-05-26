@@ -209,7 +209,7 @@ class Actimetre(
                             bootEpoch, msgBootEpoch,
                             msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
                         )
-                        val (newFile, sizeWritten) = sensorList[sensorName]!!.writeData(record)
+                        val newFile = sensorList[sensorName]!!.writeData(record)
                         htmlData(newFile)
                     }
                 }
@@ -239,16 +239,21 @@ class Actimetre(
             projectDir.forEachDirectoryEntry("${actimName()}*") {
                 val fileDate = it.fileName.toString().parseFileDate().prettyFormat()
                 val sensorStr = it.fileName.toString().substring(10, 12)
-                val fileSize = it.fileSize()
-                repoNums ++
-                repoSize += fileSize
-                if (repoList.get(sensorStr) == null) repoList[sensorStr] = mutableListOf()
-                repoList[sensorStr]!!.add(
-                    """
-                <td>$fileDate</td><td>${fileSize.printSize()}</td>
-                <td><a href="/$projectPath/${it.fileName}">${it.fileName}</a></td>                
-                """.trimIndent()
-                )
+                val fileSize = try {
+                    it.fileSize()
+                } catch (_:Exception) { -1 }
+
+                if (fileSize >= 0) {
+                    repoNums++
+                    repoSize += fileSize
+                    if (repoList.get(sensorStr) == null) repoList[sensorStr] = mutableListOf()
+                    repoList[sensorStr]!!.add(
+                        """
+                        <td>$fileDate</td><td>${fileSize.printSize()}</td>
+                        <td><a href="/$projectPath/${it.fileName}">${it.fileName}</a></td>                
+                        """.trimIndent()
+                    )
+                }
             }
 
             val htmlFile = FileWriter("index%04d.html".format(actimId).toFile(projectDir))
@@ -259,16 +264,17 @@ class Actimetre(
                 body {font-family:"Arial", "Helvetica", "Verdana", "Calibri", sans-serif; hyphens:manual;}
                 table,th,tr,td {border:1px solid black; padding:0.3em; margin:0; border-collapse:collapse; text-align:center;}
                 </style>
-                <title>${actimName()} data files
+                <title>${actimName()} (${Self.serverName()})
                 ${if (isStopped) "(Stopped)" else ""}
                 </title></head><body>
-                <h1>${actimName()} data files
+                <h1>${actimName()} data on ${Self.serverName()}
                 ${if (isStopped) "(Stopped)" else ""}
                 </h1>
-                <p>Files are locally stored on <b>${Self.serverName()}</b>, IP=${Self.ip}, under $REPO_ROOT/$projectPath/</p>
+                <p>Files are locally stored on <b>${Self.serverName()}</b> (${Self.ip}) under $REPO_ROOT/$projectPath/</p>
+                <p>$htmlInfo</p>
                 <p>Right-click a file name and choose "Download link" to retrieve the file</p>
                 <table><tr><th>Sensor</th><th>Date created</th><th>Size</th><th>File name</th></tr>
-            """.trimIndent()
+                """.trimIndent()
             )
             for (sensor in repoList.keys.sorted()) {
                 val lines = repoList[sensor]!!.sorted()
@@ -390,7 +396,7 @@ class Actimetre(
             if (isDead > 0) return
             printLog(
                 "${actimName()} last seen ${lastSeen.prettyFormat()}, " +
-                        "${Duration.between(lastSeen, now).printSec()} before now ${now.prettyFormat()}",
+                        "${Duration.between(lastSeen, now).print()} before now ${now.prettyFormat()}",
                 1)
             if (this::channel.isInitialized) channel.close()
             dies()

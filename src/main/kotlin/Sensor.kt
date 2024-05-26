@@ -183,7 +183,7 @@ class SensorInfo(
         return points
     }
 
-    private fun writeData(dateTime: ZonedDateTime, textStr: String): Pair<Boolean, Int> {
+    private fun writeData(dateTime: ZonedDateTime, textStr: String): Boolean {
         var newFile = false
         if (!this::fileHandle.isInitialized) {
             findDataFile(dateTime)
@@ -199,10 +199,10 @@ class SensorInfo(
         }
         fileHandle.append(textStr + "\n")
         fileSize += textStr.length + 1
-        return Pair(newFile, textStr.length + 1)
+        return newFile
     }
 
-    fun writeData(record: Record): Pair<Boolean, Int> {
+    fun writeData(record: Record): Boolean {
         return writeData(record.dateTime, record.textStr)
     }
 
