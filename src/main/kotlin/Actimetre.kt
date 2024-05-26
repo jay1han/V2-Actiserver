@@ -133,15 +133,10 @@ class Actimetre(
                 sendHttpRequest(reqString, "[${lastSeen.prettyFormat()}] $messageText")
                 continue
             }
+
             val sensorName = "${'1' + ((sensorHeader[3].toInt() and 0x80) shr 7)}" +
                     "${(if ((sensorHeader[5].toInt() and 0x80) != 0) 'a' else 'A') +
                             ((sensorHeader[3].toInt() and 0x40) shr 6)}"
-            if (!sensorList.containsKey(sensorName)) {
-                printLog("${actimName()} undeclared sensor $sensorName", 1)
-                printLog(sensorHeader.dump(), 10)
-                break
-            }
-
             val msgBootEpoch = sensorHeader.getInt3At(0).toLong()
             val msgMicros = sensorHeader.getInt3At20(5).toLong()
             val msgDateTime = ZonedDateTime.ofInstant(
@@ -158,6 +153,12 @@ class Actimetre(
                 val reqString = CENTRAL_BIN + "action=actim-report&serverId=$serverId&actimId=$actimId"
                 sendHttpRequest(reqString, "[${msgDateTime.prettyFormat()}] $messageText")
                 continue
+            }
+
+            if (!sensorList.containsKey(sensorName)) {
+                printLog("${actimName()} undeclared sensor $sensorName", 1)
+                printLog(sensorHeader.dump(), 10)
+                break
             }
             val count = sensorHeader[3].toInt() and 0x3F
 
