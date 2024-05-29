@@ -22,7 +22,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "420"
+const val VERSION_STRING = "421"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -121,7 +121,7 @@ class Options(configFileName: String = "") {
             """
             File max size ${MAX_REPO_SIZE.printSize()}, max duration ${MAX_REPO_TIME.print()}<br>
             Sync command: "$SYNC_EXEC", runs ${SYNC_MINS.print()} after death<br>
-            Log verbosity $VERBOSITY, max size $LOG_SIZE<br>
+            Log verbosity $VERBOSITY, max size ${LOG_SIZE.printSize()}<br>
             """.trimIndent()
     }
 }
@@ -452,6 +452,10 @@ fun Long.printSize(): String {
     }
     val inUnits = this.toDouble() / unit.toDouble()
     return "%.${precision}f$unitStr".format(inUnits)
+}
+
+fun Int.printSize(): String {
+    return this.toLong().printSize()
 }
 
 fun UByteArray.getInt3At(index: Int): Int {

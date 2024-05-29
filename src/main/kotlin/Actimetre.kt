@@ -124,7 +124,7 @@ class Actimetre(
             }
 
             if (sensorHeader[0].toInt() == 0xFF) {
-                val messageLen = sensorHeader[3].toInt() and 0x3F
+                val messageLen = ((sensorHeader[3].toInt() and 0x3F) + 1) * 4
                 val messageBuffer = ByteBuffer.allocate(messageLen)
                 readInto(messageBuffer)
                 val messageText = messageBuffer.array().decodeToString()
