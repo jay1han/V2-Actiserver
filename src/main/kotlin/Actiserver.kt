@@ -162,8 +162,9 @@ fun newClient (channel: ByteChannel) {
     } else {
         if (actimId in Self.actimetreList.keys) {
             printLog("Actim%04d already living, close".format(actimId), 1)
-            Self.actimetreList[actimId]!!.close()
+            val a = Self.actimetreList[actimId]!!
             Self.actimetreList.remove(actimId)
+            a.close()
         } else {
             printLog("Returning Actim%04d".format(actimId), 1)
         }
