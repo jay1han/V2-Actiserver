@@ -88,12 +88,12 @@ class Record(
         val gyro = GyroData()
 
         when (samplingMode) {
-            1 -> accel.read(buffer.sliceArray(0..5))
             2 -> gyro.read(buffer.sliceArray(0..5))
-            else -> {
+            3 -> {
                 accel.read(buffer.sliceArray(0..5))
                 gyro.read(buffer.sliceArray(6..11))
             }
+            else -> accel.read(buffer.sliceArray(0..5))
         }
         textStr = dateTime.csvFormat() +
                 ".%06d".format(dateTime.nano / 1_000L)

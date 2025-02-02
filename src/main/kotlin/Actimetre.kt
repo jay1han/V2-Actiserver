@@ -165,9 +165,9 @@ class Actimetre(
             rssi = (sensorHeader[4].toInt() shr 5) and 0x07
             val samplingMode = (sensorHeader[4].toInt() shr 3) and 0x03
             val dataLength = when (samplingMode) {
-                1 -> 6
-                2 -> 6
-                else -> 12
+                0 -> 7
+                3 -> 12
+                else -> 6
             }
 
             val msgFrequency = sensorHeader[4].toInt() and 0x07
