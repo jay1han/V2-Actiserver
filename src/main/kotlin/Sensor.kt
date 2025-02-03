@@ -7,6 +7,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import kotlin.experimental.and
 import kotlin.io.path.*
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -69,6 +70,25 @@ class GyroData {
     }
 }
 
+class SignalData {
+    var rawStr = ""
+
+    fun read(buffer: UByte): SignalData {
+        if (OUTPUT_RAW) {
+            rawStr = "," +
+                    if (buffer.toInt() and 0x01 != 0) "1"
+                    else "0"
+            rawStr += "," +
+                    if (buffer.toInt() and 0x02 != 0) "1"
+                    else "0"
+            rawStr += "," +
+                    if (buffer.toInt() and 0x04 != 0) "1"
+                        else "0"
+        }
+        return this
+    }
+}
+
 class Record(
     samplingMode: Int,
     buffer: UByteArray,
@@ -86,6 +106,7 @@ class Record(
     init {
         val accel = AccelData()
         val gyro = GyroData()
+        val signal = SignalData()
 
         when (samplingMode) {
             2 -> gyro.read(buffer.sliceArray(0..5))
@@ -93,12 +114,17 @@ class Record(
                 accel.read(buffer.sliceArray(0..5))
                 gyro.read(buffer.sliceArray(6..11))
             }
+            0 -> {
+                accel.read(buffer.sliceArray(0..5))
+                signal.read(buffer[6])
+            }
             else -> accel.read(buffer.sliceArray(0..5))
         }
         textStr = dateTime.csvFormat() +
                 ".%06d".format(dateTime.nano / 1_000L)
         if (OUTPUT_RAW) textStr += accel.rawStr + gyro.rawStr
         if (OUTPUT_VECTORS) textStr += accel.vecStr + gyro.vecStr
+        if (OUTPUT_SIGNALS) textStr += signal.rawStr
     }
 }
 

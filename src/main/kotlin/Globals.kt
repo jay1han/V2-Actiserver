@@ -36,6 +36,7 @@ var SYNC_EXEC = ""
 var INCLUDE_GZ = false
 var OUTPUT_RAW = true
 var OUTPUT_VECTORS = false
+var OUTPUT_SIGNALS = false
 var SECRET_KEY: String = "YouDontKnowThis"
 
 var REPO_ROOT = "/media/actimetre"
@@ -102,6 +103,7 @@ class Options(configFileName: String = "") {
                         "include_gz" -> INCLUDE_GZ = value.toBoolean()
                         "output_vectors" -> OUTPUT_VECTORS = value.toBoolean()
                         "output_raw" -> OUTPUT_RAW = value.toBoolean()
+                        "output_signals" -> OUTPUT_SIGNALS = value.toBoolean()
                         "log_size" -> LOG_SIZE = value.replace("_", "").toInt()
                         "verbosity" -> VERBOSITY = value.toInt()
                         "options" -> for (c in value.toCharArray()) {
