@@ -401,6 +401,12 @@ class Actimetre(
             if (this::channel.isInitialized) channel.close()
             dies()
         }
+        if (REBOOT_HOURS.toHours() > 0 && Duration.between(bootTime, now) > REBOOT_HOURS) {
+            printLog(
+                "${actimName()} booted ${bootTime.prettyFormat()}, rebooting now",
+                10)
+            dies()
+        }
     }
 
     fun setInfo(mac: String, boardType: String, version: String, bootTime: ZonedDateTime, sensorBits: UByte) {

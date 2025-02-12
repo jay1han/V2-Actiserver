@@ -22,7 +22,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "500"
+const val VERSION_STRING = "501"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -37,6 +37,7 @@ var INCLUDE_GZ = false
 var OUTPUT_RAW = true
 var OUTPUT_VECTORS = false
 var OUTPUT_SIGNALS = false
+var REBOOT_HOURS: Duration = Duration.ofHours(24)
 var SECRET_KEY: String = "YouDontKnowThis"
 
 var REPO_ROOT = "/media/actimetre"
@@ -104,6 +105,7 @@ class Options(configFileName: String = "") {
                         "output_vectors" -> OUTPUT_VECTORS = value.toBoolean()
                         "output_raw" -> OUTPUT_RAW = value.toBoolean()
                         "output_signals" -> OUTPUT_SIGNALS = value.toBoolean()
+                        "reboot_hours" -> REBOOT_HOURS = Duration.ofHours(value.toLong())
                         "log_size" -> LOG_SIZE = value.replace("_", "").toInt()
                         "verbosity" -> VERBOSITY = value.toInt()
                         "options" -> for (c in value.toCharArray()) {
