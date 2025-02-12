@@ -22,7 +22,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "501"
+const val VERSION_STRING = "502"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -55,17 +55,26 @@ var VERBOSITY = 10
 var htmlInfo = ""
 var options = Options("")
 
-fun String.runCommand(): String {
-    return try {
+fun String.runCommand(): Pair<Int, String> {
+    var result = 0
+    var text = ""
+
+    try {
         val parts = this.split(" ")
         val processBuilder = ProcessBuilder(*parts.toTypedArray())
         processBuilder.redirectErrorStream(true)
         val process = processBuilder.start()
-        while (!process.waitFor(1, TimeUnit.SECONDS)) ;
-        process.inputStream.bufferedReader().readText().trim()
+        result = process.waitFor()
+        text = process.inputStream.bufferedReader().readText().trim()
     } catch(e: Throwable) {
-        ""
+        printLog("Error running $this", 1)
     }
+
+    return Pair(result, text)
+}
+
+fun String.getTextOutput(): String {
+    return this.runCommand().second
 }
 
 var myMachine: String = ""
@@ -132,7 +141,7 @@ class Options(configFileName: String = "") {
 
 fun Init() {
     myMachine = run {
-        val inxi = "/usr/bin/inxi -M -c 0".runCommand()
+        val inxi = "/usr/bin/inxi -M -c 0".getTextOutput()
         val regex = "System:\\s+([^:]+)".toRegex()
         val machine = regex.find(inxi)
         if (machine != null) {
@@ -144,7 +153,7 @@ fun Init() {
     }
 
     fun getInet(ifname: String): String {
-        val config = "/usr/sbin/ifconfig $ifname".runCommand()
+        val config = "/usr/sbin/ifconfig $ifname".getTextOutput()
         val regex = "inet\\s+([0-9.]+)".toRegex()
         val ipMatch = regex.find(config)
         if (ipMatch != null) return ipMatch.groupValues[1]
@@ -160,7 +169,7 @@ fun Init() {
         }
     }
 
-    for (net in "/usr/sbin/ifconfig -s".runCommand().lines()) {
+    for (net in "/usr/sbin/ifconfig -s".getTextOutput().lines()) {
         if (net == "") continue
         val ifname = net.split("\\s".toRegex())[0]
         when (ifname[0]) {
@@ -169,17 +178,17 @@ fun Init() {
             }
 
             'w' -> {
-                val iw = "/usr/sbin/iw $ifname info".runCommand()
+                val iw = "/usr/sbin/iw $ifname info".getTextOutput()
                 if ("type AP".toRegex().find(iw) != null) {
                     myIfname = ifname
                     serverId = "Actis([0-9]{3})".toRegex().find(iw)?.groupValues?.get(1)?.toInt() ?: 0
                     if (serverId > 0) serverName = "Actis%03d".format(serverId)
                     serverAddress = "inet ([0-9.]+)".toRegex()
-                        .find("/usr/sbin/ifconfig $ifname".runCommand())?.groupValues?.get(1)
+                        .find("/usr/sbin/ifconfig $ifname".getTextOutput())?.groupValues?.get(1)
                         ?: "?"
                     myChannel = "channel\\s+([0-9])+".toRegex().find(iw)?.groupValues?.get(1)?.toInt()
                         ?: "Current Frequency:.+Channel\\s+([0-9]+)".toRegex()
-                            .find("/usr/sbin/iwlist $myIfname channel".runCommand())?.groupValues?.get(1)?.toInt()
+                            .find("/usr/sbin/iwlist $myIfname channel".getTextOutput())?.groupValues?.get(1)?.toInt()
                                 ?: findChannel("/etc/hostapd/hostapd.conf")
                                 ?: findChannel("/etc/hostapd.conf")
                                 ?: 0
@@ -198,13 +207,13 @@ fun Init() {
 }
 
 class Disk {
-    private val df = "/usr/bin/df -B 1 $REPO_ROOT".runCommand().lines()[1].split("\\s+".toRegex())
+    private val df = "/usr/bin/df -B 1 $REPO_ROOT".getTextOutput().lines()[1].split("\\s+".toRegex())
     val size = df[1].toLong()
     val free = df[3].toLong()
 }
 
 class Stat {
-    private val diskDevice = "/usr/bin/df $REPO_ROOT".runCommand().lines()[1].split(Regex("\\s+"))[0].split('/').last()
+    private val diskDevice = "/usr/bin/df $REPO_ROOT".getTextOutput().lines()[1].split(Regex("\\s+"))[0].split('/').last()
     private val processBuilder = ProcessBuilder("/usr/bin/iostat", "-sxcd", diskDevice, ACTIS_STAT_SECS.toString())
     private val process = processBuilder.start()
     private val iostat = process.inputStream.bufferedReader()
@@ -218,7 +227,7 @@ class Stat {
     }
 
     fun read() {
-        val memFree = "/usr/bin/free".runCommand()
+        val memFree = "/usr/bin/free".getTextOutput()
         printLog(memFree, 100)
         val memStat = memFree.lines()[1].split(Regex("\\s+"))
         memAvailable = 100.0f * memStat.last().toFloat() / memStat[1].toFloat()
@@ -267,7 +276,7 @@ fun globalStat() {
     }
 
     if (disk.free < disk.size / 10 && CLEANUP_EXEC != "") {
-        val result = CLEANUP_EXEC.runCommand()
+        val result = CLEANUP_EXEC.getTextOutput()
         printLog("CLEAN: \"$CLEANUP_EXEC\" -> $result", 1)
         disk = Disk()
     }
@@ -514,14 +523,18 @@ fun String.cleanJson(): String {
         .replace("},", "},\n")
 }
 
-fun runSync(filename: String, block: Boolean = false) {
+fun runSync(
+    filename: String,
+    block: Boolean = false,
+    callback: ((Int) -> Unit)?) {
     if (SYNC_EXEC == "") {
         printLog("SYNC_EXEC empty", 100)
     } else {
         val sync = thread(name = "SYNC($filename)", isDaemon = false, priority = 1) {
             val execString = SYNC_EXEC.replace("$", filename)
-            val result = execString.runCommand()
-            printLog("SYNC: \"$execString\" -> $result", 10)
+            val (result, text) = execString.runCommand()
+            printLog("SYNC: \"$execString\" -> [$result] $text", 10)
+            if (callback != null) callback(result)
         }
         if (block) sync.join()
     }

@@ -360,7 +360,7 @@ class Actimetre(
 
         projectDir.forEachDirectoryEntry("${actimName()}*") {
             printLog("Sync ${it.fileName}")
-            runSync(it.toAbsolutePath().toString(), true)
+            runSync(it.toAbsolutePath().toString(), true, null)
         }
         val htmlIndex = "index%04d.html".format(actimId).toFile(projectDir)
         if (htmlIndex.exists()) htmlIndex.delete()

@@ -36,7 +36,7 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 
-    while (! "/usr/bin/ntpstat".runCommand().contains("time correct")) {
+    while (! "/usr/bin/ntpstat".getTextOutput().contains("time correct")) {
         println("Waiting NTP sync")
         sleep(1000)
     }

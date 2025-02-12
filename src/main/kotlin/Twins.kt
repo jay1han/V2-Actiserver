@@ -94,7 +94,7 @@ class Actiserver(
                     val actimId = match.groupValues[1].toInt()
                     val fileModified = it.getLastModifiedTime().toInstant()
                     if (Duration.between(fileModified, now()) > SYNC_MINS) {
-                        runSync(it.toString(), true)
+                        runSync(it.toString(), true, null)
                     } else {
                         if (!actimetreList.containsKey(actimId)) {
                             actimetreList[actimId] = Actimetre(actimId, serverId = serverId, isDead = 1)
@@ -136,6 +136,18 @@ class Actiserver(
     fun removeActim(actimId: Int) {
         synchronized(this) {
             actimetreList.remove(actimId)
+        }
+    }
+
+    fun killActim(actimId: Int) {
+        printLog("killActim $actimId")
+        synchronized(this) {
+            if (actimetreList.containsKey(actimId)) {
+                val a = actimetreList[actimId]!!
+                a.dies()
+            } else {
+                printLog("Unknown Actim" + "%04d".format(actimId))
+            }
         }
     }
 

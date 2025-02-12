@@ -134,12 +134,14 @@ class SensorInfo(
     private var fileName: String = "",
     private var fileSize: Int = 0,
     private var fileDate: ZonedDateTime = TimeZero
-){
+) {
     private lateinit var fileHandle: BufferedWriter
     private var lastDateTime: ZonedDateTime = TimeZero
     private val projectDir = Path("$REPO_ROOT/Project%02d".format(Projects[actimId] ?: 0))
 
-    private fun sensorName(): String {return "Actim%04d-%s".format(actimId, sensorId.uppercase())}
+    private fun sensorName(): String {
+        return "Actim%04d-%s".format(actimId, sensorId.uppercase())
+    }
 
     private fun findDataFile(atDateTime: ZonedDateTime) {
         var lastRepoFile = ""
@@ -169,7 +171,8 @@ class SensorInfo(
 
         if (lastRepoFile == ""
             || (Duration.between(lastRepoDate, atDateTime) > MAX_REPO_TIME)
-            || (lastRepoSize > MAX_REPO_SIZE)) {
+            || (lastRepoSize > MAX_REPO_SIZE)
+        ) {
             newDataFile(atDateTime)
         } else {
             fileName = lastRepoFile
@@ -214,12 +217,14 @@ class SensorInfo(
         if (!this::fileHandle.isInitialized) {
             findDataFile(dateTime)
             newFile = true
-        }
-        else if (fileSize > MAX_REPO_SIZE ||
+        } else if (fileSize > MAX_REPO_SIZE ||
             Duration.between(fileDate, dateTime) > MAX_REPO_TIME
         ) {
             fileHandle.close()
-            runSync(fileName.toFile(projectDir).toString(), false)
+            runSync(fileName.toFile(projectDir).toString(), false) { result: Int ->
+                printLog("Sync returned $result", 10)
+                if (result == 42) Self.killActim(actimId)
+            }
             newDataFile(dateTime)
             newFile = true
         }
@@ -244,7 +249,7 @@ class SensorInfo(
 
     fun closeAndSync() {
         closeIfOpen()
-        runSync(fileName.toFile(projectDir).toString(), true)
+        runSync(fileName.toFile(projectDir).toString(), true, null)
     }
 
     fun closeAndClear() {
