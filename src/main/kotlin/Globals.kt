@@ -22,7 +22,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.io.path.name
 
-const val VERSION_STRING = "502"
+const val VERSION_STRING = "509"
 
 var CENTRAL_HOST = "actimetre.u-paris-sciences.fr"
 var USE_HTTPS = true
@@ -532,8 +532,9 @@ fun runSync(
     } else {
         val sync = thread(name = "SYNC($filename)", isDaemon = false, priority = 1) {
             val execString = SYNC_EXEC.replace("$", filename)
+            printLog("SYNC: \"$execString\"", 10)
             val (result, text) = execString.runCommand()
-            printLog("SYNC: \"$execString\" -> [$result] $text", 10)
+            printLog("SYNC $filename returned\n[$result] $text", 10)
             if (callback != null) callback(result)
         }
         if (block) sync.join()

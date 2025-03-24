@@ -91,6 +91,7 @@ class SignalData {
 
 class Record(
     samplingMode: Int,
+    hasSignals: Boolean,
     buffer: UByteArray,
     bootEpoch: Long,
     msgBootEpoch: Long,
@@ -110,16 +111,16 @@ class Record(
 
         when (samplingMode) {
             2 -> gyro.read(buffer.sliceArray(0..5))
-            3 -> {
+            0, 3 -> {
                 accel.read(buffer.sliceArray(0..5))
                 gyro.read(buffer.sliceArray(6..11))
             }
-            0 -> {
+            else -> {
                 accel.read(buffer.sliceArray(0..5))
-                signal.read(buffer[6])
+                if (hasSignals) signal.read(buffer[6])
             }
-            else -> accel.read(buffer.sliceArray(0..5))
         }
+
         textStr = dateTime.csvFormat() +
                 ".%06d".format(dateTime.nano / 1_000L)
         if (OUTPUT_RAW) textStr += accel.rawStr + gyro.rawStr

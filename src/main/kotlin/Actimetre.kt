@@ -164,11 +164,12 @@ class Actimetre(
 
             rssi = (sensorHeader[4].toInt() shr 5) and 0x07
             val samplingMode = (sensorHeader[4].toInt() shr 3) and 0x03
-            val dataLength = when (samplingMode) {
-                0 -> 7
-                3 -> 12
+            val hasSignals = (sensorHeader[5].toInt() and 0x20) != 0
+            var dataLength = when (samplingMode) {
+                0, 3 -> 12
                 else -> 6
             }
+            if (hasSignals) dataLength += 1
 
             val msgFrequency = sensorHeader[4].toInt() and 0x07
             if (msgFrequency >= Frequencies.size) {
@@ -205,6 +206,7 @@ class Actimetre(
                     for (index in 0 until count) {
                         val record = Record(
                             samplingMode,
+                            hasSignals,
                             sensorData.sliceArray(index * dataLength until (index + 1) * dataLength),
                             bootEpoch, msgBootEpoch,
                             msgMicros - ((count - index - 1) * cycleNanoseconds / 1000L)
