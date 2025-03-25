@@ -108,18 +108,18 @@ class Record(
         val accel = AccelData()
         val gyro = GyroData()
         val signal = SignalData()
+        var agSize = 6
 
         when (samplingMode) {
             2 -> gyro.read(buffer.sliceArray(0..5))
             0, 3 -> {
                 accel.read(buffer.sliceArray(0..5))
                 gyro.read(buffer.sliceArray(6..11))
+                agSize = 12
             }
-            else -> {
-                accel.read(buffer.sliceArray(0..5))
-                if (hasSignals) signal.read(buffer[6])
-            }
+            else -> accel.read(buffer.sliceArray(0..5))
         }
+        if (hasSignals) signal.read(buffer[agSize])
 
         textStr = dateTime.csvFormat() +
                 ".%06d".format(dateTime.nano / 1_000L)

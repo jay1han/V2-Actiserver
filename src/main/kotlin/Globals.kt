@@ -522,21 +522,3 @@ fun String.cleanJson(): String {
         .replace("[", "[\n")
         .replace("},", "},\n")
 }
-
-fun runSync(
-    filename: String,
-    block: Boolean = false,
-    callback: ((Int) -> Unit)?) {
-    if (SYNC_EXEC == "") {
-        printLog("SYNC_EXEC empty", 100)
-    } else {
-        val sync = thread(name = "SYNC($filename)", isDaemon = false, priority = 1) {
-            val execString = SYNC_EXEC.replace("$", filename)
-            printLog("SYNC: \"$execString\"", 10)
-            val (result, text) = execString.runCommand()
-            printLog("SYNC $filename returned\n[$result] $text", 10)
-            if (callback != null) callback(result)
-        }
-        if (block) sync.join()
-    }
-}
