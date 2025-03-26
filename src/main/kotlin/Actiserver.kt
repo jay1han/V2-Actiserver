@@ -333,6 +333,7 @@ class SyncRunner() {
         callback: ((Int) -> Unit)?
     ) {
         queue.add(SyncItem(filename, callback))
+        printLog("SYNC enqueued $filename, ${queue.size} in total", 100)
         semaphore.release()
     }
 }
