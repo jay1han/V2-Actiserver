@@ -223,8 +223,8 @@ class SensorInfo(
         ) {
             fileHandle.close()
             runSync(fileName.toFile(projectDir).toString(), false) { result: Int ->
-                printLog("Sync returned $result", 10)
                 if (result == 42) Self.killActim(actimId)
+                else printLog("Sync returned $result, nothing to do", 100)
             }
             newDataFile(dateTime)
             newFile = true
