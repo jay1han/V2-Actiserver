@@ -303,9 +303,9 @@ data class SyncItem (
     val callback: ((Int) -> Unit)?
 )
 
-class SyncRunner() {
-    val queue: MutableList<SyncItem> = mutableListOf()
-    val semaphore = Semaphore(0)
+class SyncRunner {
+    private val queue: MutableList<SyncItem> = mutableListOf()
+    private val semaphore = Semaphore(0)
 
     init {
         thread(name = "", isDaemon = true, start = true) {

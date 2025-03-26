@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalUnsignedTypes::class, ExperimentalPathApi::class)
+@file:OptIn(ExperimentalUnsignedTypes::class)
 
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
@@ -230,7 +230,7 @@ class Actimetre(
         }
     }
 
-    fun htmlData(force:Boolean = false) {
+    private fun htmlData(force:Boolean = false) {
         if (force || lastSeen > htmlUpdate) {
             htmlUpdate = lastSeen.plusSeconds(60)
 
@@ -248,7 +248,7 @@ class Actimetre(
                 if (fileSize >= 0) {
                     repoNums++
                     repoSize += fileSize
-                    if (repoList.get(sensorStr) == null) repoList[sensorStr] = mutableListOf()
+                    if (repoList[sensorStr] == null) repoList[sensorStr] = mutableListOf()
                     repoList[sensorStr]!!.add(
                         """
                         <td>$fileDate</td><td>${fileSize.printSize()}</td>

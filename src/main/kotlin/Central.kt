@@ -6,7 +6,6 @@ import java.io.DataOutputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-import java.nio.ByteBuffer
 import javax.net.ssl.HttpsURLConnection
 
 fun sendHttpRequest(reqString: String, data: String = ""): String {
@@ -52,7 +51,7 @@ fun sendHttpRequest(reqString: String, data: String = ""): String {
 }
 
 fun selfToCentral() {
-    synchronized<Unit>(Self) {
+    synchronized(Self) {
         Self.lastReport = now()
         printLog("v${VERSION_STRING} Alive with " +
                 if (Self.actimetreList.isEmpty()) "no Actimetres"
