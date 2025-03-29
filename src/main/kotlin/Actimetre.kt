@@ -308,6 +308,7 @@ class Actimetre(
                 "&serverId=${serverId}&actimId=${actimId}"
         sendHttpRequest(reqString)
         htmlData(true)
+        Self.rebootMaybe()
     }
 
     fun join() {
@@ -454,3 +455,4 @@ class Actimetre(
         return "Actim%04d".format(actimId)
     }
 }
+

@@ -10,6 +10,8 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import java.time.Duration
 import java.time.ZonedDateTime
+import java.util.concurrent.Semaphore
+import kotlin.concurrent.thread
 import kotlin.io.path.*
 
 object ActimetreShortList: KSerializer<Map<Int, ActimetreShort>> {
@@ -84,6 +86,7 @@ class Actiserver(
     var lastReport: ZonedDateTime = TimeZero
     var dbTime: ZonedDateTime = TimeZero
     var actimetreList = mutableMapOf<Int, Actimetre>()
+    private var hadAlive = false
     val stat = Stat()
 
     init {
@@ -129,6 +132,7 @@ class Actiserver(
             a.setInfo(mac, boardType, version, bootTime, sensorBits)
             a.isStopped = false
             a.setProject(Projects[actimId] ?: 0)
+            hadAlive = true
             return a
         }
     }
@@ -153,5 +157,88 @@ class Actiserver(
 
     fun serverName(): String {
         return "Actis%03d".format(serverId)
+    }
+
+    fun rebootMaybe() {
+        if (shuttingDown) return
+        val alive = actimetreList.countAlive()
+        if (alive > 0)
+            printLog("Remain $alive actimetres", 10)
+        else if (hadAlive){
+            printLog("No more actimetres", 10)
+            val (result, text) = "/usr/bin/sudo /usr/sbin/reboot".runCommand()
+            printLog("Reboot [$result]: $text", 10)
+        } else {
+            printLog("Never had actimetres", 10)
+        }
+    }
+}
+
+fun MutableMap<Int, Actimetre>.countAlive(): Int {
+    var count = 0
+    for (a in this.values) {
+        if (a.isDead == 0) count++
+    }
+    return count
+}
+
+data class SyncItem (
+    val filename: String,
+    val callback: ((Int) -> Unit)?
+)
+
+class SyncRunner {
+    private val queue: MutableList<SyncItem> = mutableListOf()
+    private val semaphore = Semaphore(0)
+
+    init {
+        thread(name = "", isDaemon = true, start = true) {
+            while (true) {
+                semaphore.acquire()
+                val filename = queue.first().filename
+                val callback = queue.first().callback
+                queue.removeFirst()
+
+                val execString = SYNC_EXEC.replace("$", filename)
+                printLog("SYNC: \"$execString\"", 10)
+                val (result, text) = execString.runCommand()
+                printLog("SYNC $filename\nreturned [$result]\n$text", 10)
+                if (callback != null) callback(result)
+                if (queue.size == 0)
+                    printLog("SYNC queue is empty", 100)
+                else
+                    printLog("SYNC queue has ${queue.size} items", 100)
+            }
+        }
+    }
+
+    fun enqueue(
+        filename: String,
+        callback: ((Int) -> Unit)?
+    ) {
+        queue.add(SyncItem(filename, callback))
+        printLog("SYNC enqueued $filename, ${queue.size} in total", 100)
+        semaphore.release()
+    }
+}
+
+val runner = SyncRunner()
+
+fun runSync(
+    filename: String,
+    block: Boolean = false,
+    callback: ((Int) -> Unit)?) {
+    if (SYNC_EXEC == "") {
+        printLog("SYNC_EXEC empty", 100)
+    } else {
+        if (block) {
+            val execString = SYNC_EXEC.replace("$", filename)
+            printLog("SYNC(block): \"$execString\"", 10)
+            val (result, text) = execString.runCommand()
+            printLog("SYNC(block) $filename\nreturned [$result] $text", 10)
+            if (callback != null) callback(result)
+        } else {
+            runner.enqueue(filename, callback)
+        }
     }
 }

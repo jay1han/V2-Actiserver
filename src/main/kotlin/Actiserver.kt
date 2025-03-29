@@ -10,12 +10,13 @@ import java.nio.channels.ServerSocketChannel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.util.concurrent.Semaphore
 import kotlin.concurrent.thread
 import kotlin.io.path.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.forEachDirectoryEntry
 import kotlin.system.exitProcess
+
+var shuttingDown = false
 
 fun main(args: Array<String>) {
     Init()
@@ -60,7 +61,6 @@ fun main(args: Array<String>) {
         sideLoop()
     }
 
-    var shuttingDown = false
     Runtime.getRuntime().addShutdownHook(
         thread (start=false) {
             shuttingDown = true
@@ -298,63 +298,3 @@ fun sideLoop() {
     }
 }
 
-data class SyncItem (
-    val filename: String,
-    val callback: ((Int) -> Unit)?
-)
-
-class SyncRunner {
-    private val queue: MutableList<SyncItem> = mutableListOf()
-    private val semaphore = Semaphore(0)
-
-    init {
-        thread(name = "", isDaemon = true, start = true) {
-            while (true) {
-                semaphore.acquire()
-                val filename = queue.first().filename
-                val callback = queue.first().callback
-                queue.removeFirst()
-
-                val execString = SYNC_EXEC.replace("$", filename)
-                printLog("SYNC: \"$execString\"", 10)
-                val (result, text) = execString.runCommand()
-                printLog("SYNC $filename\nreturned [$result]\n$text", 10)
-                if (callback != null) callback(result)
-                if (queue.size == 0)
-                    printLog("SYNC queue is empty", 100)
-                else
-                    printLog("SYNC queue has ${queue.size} items", 100)
-            }
-        }
-    }
-
-    fun enqueue(
-        filename: String,
-        callback: ((Int) -> Unit)?
-    ) {
-        queue.add(SyncItem(filename, callback))
-        printLog("SYNC enqueued $filename, ${queue.size} in total", 100)
-        semaphore.release()
-    }
-}
-
-val runner = SyncRunner()
-
-fun runSync(
-    filename: String,
-    block: Boolean = false,
-    callback: ((Int) -> Unit)?) {
-    if (SYNC_EXEC == "") {
-        printLog("SYNC_EXEC empty", 100)
-    } else {
-        if (block) {
-            val execString = SYNC_EXEC.replace("$", filename)
-            printLog("SYNC(block): \"$execString\"", 10)
-            val (result, text) = execString.runCommand()
-            printLog("SYNC(block) $filename\nreturned [$result] $text", 10)
-            if (callback != null) callback(result)
-        } else {
-            runner.enqueue(filename, callback)
-        }
-    }
-}
